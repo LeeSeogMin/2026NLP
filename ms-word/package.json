@@ -1,0 +1,31 @@
+{
+  "name": "book-word-converter",
+  "version": "1.0.0",
+  "description": "Markdown to MS Word converter for professional book publishing",
+  "main": "src/converter.js",
+  "scripts": {
+    "convert:chapter": "node src/convert-chapter.js",
+    "convert:all": "node src/convert-all.js",
+    "create:book": "node src/create-book.js"
+  },
+  "dependencies": {
+    "docx": "^8.5.0",
+    "markdown-it": "^14.0.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0"
+  },
+  "keywords": [
+    "markdown",
+    "word",
+    "docx",
+    "converter",
+    "book",
+    "publishing"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base'}}%%
+flowchart LR
+    subgraph Input["입력층"]
+        X1["x₁"]
+        X2["x₂"]
+        X3["x₃"]
+    end
+
+    subgraph Perceptron["퍼셉트론"]
+        direction TB
+        SUM["Σ = w₁x₁ + w₂x₂ + w₃x₃ + b"]
+        ACT["step(Σ)"]
+        SUM --> ACT
+    end
+
+    subgraph Output["출력"]
+        Y["y ∈ {0, 1}"]
+    end
+
+    X1 -->|"w₁"| SUM
+    X2 -->|"w₂"| SUM
+    X3 -->|"w₃"| SUM
+    ACT --> Y
+
+    style Input fill:#fff3e0
+    style Perceptron fill:#e3f2fd
+    style Output fill:#e8f5e9

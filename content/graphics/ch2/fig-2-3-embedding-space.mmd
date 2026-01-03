@@ -1,0 +1,26 @@
+%%{init: {'theme': 'base'}}%%
+flowchart LR
+    subgraph OneHot["원-핫 인코딩"]
+        direction TB
+        OH1["왕: [1,0,0,0,0,...]"]
+        OH2["여왕: [0,1,0,0,0,...]"]
+        OH3["남자: [0,0,1,0,0,...]"]
+        OH4["여자: [0,0,0,1,0,...]"]
+    end
+
+    subgraph Dense["밀집 벡터 (Word2Vec)"]
+        direction TB
+        D1["왕: [0.2, 0.8, -0.3, ...]"]
+        D2["여왕: [0.3, 0.7, -0.2, ...]"]
+        D3["남자: [0.1, 0.4, 0.5, ...]"]
+        D4["여자: [0.2, 0.3, 0.4, ...]"]
+    end
+
+    subgraph Arithmetic["벡터 연산"]
+        A1["왕 - 남자 + 여자"]
+        A2["≈ 여왕"]
+    end
+
+    OneHot -->|"Word2Vec 학습"| Dense
+    Dense --> Arithmetic
+    A1 --> A2

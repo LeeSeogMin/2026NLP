@@ -1,0 +1,58 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#34a853'}}}%%
+flowchart TB
+    subgraph input["입력 처리"]
+        direction LR
+        tokens["토큰1 토큰2 토큰3 ..."]
+
+        subgraph embeddings["두 가지 임베딩의 합"]
+            token_emb["Token Embedding"]
+            pos_emb["Position Embedding"]
+        end
+
+        tokens --> token_emb
+        tokens --> pos_emb
+    end
+
+    subgraph decoder["Transformer Decoder (12 layers)"]
+        direction TB
+
+        subgraph block["Decoder Block"]
+            ln1["Layer Norm"]
+            attn["Masked Multi-Head<br/>Self-Attention"]
+            ln2["Layer Norm"]
+            ffn["Feed-Forward Network"]
+
+            ln1 --> attn
+            attn --> ln2
+            ln2 --> ffn
+        end
+
+        block1["Block 1"]
+        block2["Block 2"]
+        dots["..."]
+        block12["Block 12"]
+
+        block1 --> block2
+        block2 --> dots
+        dots --> block12
+    end
+
+    subgraph output["출력"]
+        ln_f["Final Layer Norm"]
+        lm_head["Language Model Head<br/>(Vocabulary Projection)"]
+        softmax["Softmax"]
+        next_token["다음 토큰 확률"]
+
+        ln_f --> lm_head
+        lm_head --> softmax
+        softmax --> next_token
+    end
+
+    embeddings --> decoder
+    decoder --> output
+
+    style input fill:#fff3e0,stroke:#f57c00
+    style decoder fill:#e8f5e9,stroke:#388e3c
+    style output fill:#e3f2fd,stroke:#1976d2
+    style block fill:#c8e6c9,stroke:#2e7d32
+    style attn fill:#34a853,stroke:#1e7e34,color:#fff

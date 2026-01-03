@@ -1,0 +1,34 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4'}}}%%
+flowchart LR
+    subgraph original["BERT (2018)"]
+        bert_base["BERT-Base<br/>110M params<br/>12 layers"]
+        bert_large["BERT-Large<br/>340M params<br/>24 layers"]
+    end
+
+    subgraph variants["BERT 변형 모델들"]
+        direction TB
+
+        subgraph roberta["RoBERTa (2019)"]
+            rob_feat["NSP 제거<br/>동적 마스킹<br/>더 큰 배치/데이터"]
+        end
+
+        subgraph albert["ALBERT (2019)"]
+            alb_feat["파라미터 공유<br/>Factorized Embedding<br/>SOP (문장 순서 예측)"]
+        end
+
+        subgraph distilbert["DistilBERT (2019)"]
+            dist_feat["지식 증류<br/>6 layers (50%)<br/>97% 성능 유지"]
+        end
+
+        subgraph deberta["DeBERTa (2020)"]
+            deb_feat["Disentangled Attention<br/>Content/Position 분리<br/>SuperGLUE SOTA"]
+        end
+    end
+
+    original --> variants
+
+    style original fill:#e3f2fd,stroke:#1976d2
+    style roberta fill:#fff3e0,stroke:#f57c00
+    style albert fill:#e8f5e9,stroke:#388e3c
+    style distilbert fill:#fce4ec,stroke:#c2185b
+    style deberta fill:#f3e5f5,stroke:#7b1fa2

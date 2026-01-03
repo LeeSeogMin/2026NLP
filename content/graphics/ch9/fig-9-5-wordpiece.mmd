@@ -1,0 +1,49 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4'}}}%%
+flowchart TB
+    subgraph wordpiece["WordPiece 토큰화"]
+        direction TB
+
+        subgraph example1["예시 1: playing"]
+            word1["playing"]
+            tokens1["play + ##ing"]
+            word1 --> tokens1
+        end
+
+        subgraph example2["예시 2: unbelievable"]
+            word2["unbelievable"]
+            tokens2["un + ##bel + ##ie + ##va + ##ble"]
+            word2 --> tokens2
+        end
+
+        subgraph example3["예시 3: tokenization"]
+            word3["tokenization"]
+            tokens3["token + ##ization"]
+            word3 --> tokens3
+        end
+    end
+
+    subgraph principle["동작 원리"]
+        direction TB
+        step1["1. 어휘에서 가장 긴 접두사 찾기"]
+        step2["2. 나머지 부분에 ## 접두사 추가"]
+        step3["3. 재귀적으로 반복"]
+
+        step1 --> step2
+        step2 --> step3
+    end
+
+    subgraph benefits["장점"]
+        benefit1["OOV 문제 해결"]
+        benefit2["희귀 단어 처리"]
+        benefit3["어휘 크기 제한 (30,522)"]
+    end
+
+    wordpiece --> principle
+    principle --> benefits
+
+    style wordpiece fill:#e3f2fd,stroke:#1976d2
+    style principle fill:#fff3e0,stroke:#f57c00
+    style benefits fill:#e8f5e9,stroke:#388e3c
+    style tokens1 fill:#bbdefb,stroke:#1565c0
+    style tokens2 fill:#bbdefb,stroke:#1565c0
+    style tokens3 fill:#bbdefb,stroke:#1565c0

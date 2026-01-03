@@ -1,0 +1,47 @@
+flowchart TB
+    subgraph input["입력"]
+        DOCS["문서 집합\n(d₁, d₂, ..., dₙ)"]
+    end
+
+    subgraph step1["1단계: Document Embedding"]
+        SBERT["Sentence-BERT\n(문서 → 벡터)"]
+        VEC["문서 임베딩\n(384차원)"]
+        DOCS --> SBERT --> VEC
+    end
+
+    subgraph step2["2단계: Dimensionality Reduction"]
+        UMAP["UMAP\n(Uniform Manifold Approximation)"]
+        LOW["저차원 임베딩\n(5차원)"]
+        VEC --> UMAP --> LOW
+    end
+
+    subgraph step3["3단계: Clustering"]
+        HDBSCAN["HDBSCAN\n(밀도 기반 클러스터링)"]
+        CLUSTER["클러스터 할당\n(토픽 0, 1, 2, ...)"]
+        LOW --> HDBSCAN --> CLUSTER
+    end
+
+    subgraph step4["4단계: Topic Representation"]
+        CTFIDF["c-TF-IDF\n(클래스 기반 TF-IDF)"]
+        KEYWORDS["토픽별 키워드\n(상위 N개 단어)"]
+        CLUSTER --> CTFIDF
+        DOCS -.-> CTFIDF
+        CTFIDF --> KEYWORDS
+    end
+
+    subgraph step5["5단계: Fine-tuning (선택)"]
+        REFINE["토픽 표현 개선\n(MMR, KeyBERT, LLM)"]
+        KEYWORDS --> REFINE
+    end
+
+    subgraph output["출력"]
+        RESULT["최종 토픽 모델\n• 토픽 키워드\n• 문서-토픽 매핑\n• 토픽 임베딩"]
+    end
+
+    REFINE --> RESULT
+
+    style SBERT fill:#bbdefb
+    style UMAP fill:#c8e6c9
+    style HDBSCAN fill:#ffcdd2
+    style CTFIDF fill:#fff9c4
+    style REFINE fill:#e1bee7

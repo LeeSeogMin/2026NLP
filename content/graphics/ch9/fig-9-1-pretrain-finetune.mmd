@@ -1,0 +1,38 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4', 'secondaryColor': '#34a853', 'tertiaryColor': '#fbbc04'}}}%%
+flowchart TB
+    subgraph pretrain["사전학습 (Pre-training)"]
+        direction TB
+        data["대규모 텍스트 데이터<br/>BooksCorpus + Wikipedia<br/>(3.3B words)"]
+        bert["BERT 모델"]
+        mlm["MLM: 마스크 토큰 예측"]
+        nsp["NSP: 다음 문장 예측"]
+
+        data --> bert
+        bert --> mlm
+        bert --> nsp
+    end
+
+    subgraph finetune["미세조정 (Fine-tuning)"]
+        direction TB
+        task1["텍스트 분류"]
+        task2["개체명 인식"]
+        task3["질의응답"]
+        task4["문장 유사도"]
+
+        pretrained["사전학습된 BERT"]
+        head["태스크별 출력층"]
+
+        pretrained --> head
+        head --> task1
+        head --> task2
+        head --> task3
+        head --> task4
+    end
+
+    pretrain --> |"가중치 전이"| finetune
+
+    style pretrain fill:#e3f2fd,stroke:#1976d2
+    style finetune fill:#e8f5e9,stroke:#388e3c
+    style data fill:#fff3e0,stroke:#f57c00
+    style bert fill:#4285f4,stroke:#1565c0,color:#fff
+    style pretrained fill:#4285f4,stroke:#1565c0,color:#fff

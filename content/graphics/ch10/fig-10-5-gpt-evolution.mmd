@@ -1,0 +1,47 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#34a853'}}}%%
+flowchart LR
+    subgraph gpt1["GPT-1 (2018)"]
+        g1_params["117M 파라미터"]
+        g1_feat["12층, 768 은닉<br/>Pre-train + Fine-tune"]
+    end
+
+    subgraph gpt2["GPT-2 (2019)"]
+        g2_params["1.5B 파라미터"]
+        g2_feat["48층, 1600 은닉<br/>Zero-shot 가능"]
+    end
+
+    subgraph gpt3["GPT-3 (2020)"]
+        g3_params["175B 파라미터"]
+        g3_feat["96층, 12288 은닉<br/>Few-shot, In-context Learning"]
+    end
+
+    subgraph gpt4["GPT-4 (2023)"]
+        g4_params["~1.7T 파라미터 (추정)"]
+        g4_feat["멀티모달<br/>향상된 추론 능력"]
+    end
+
+    gpt1 --> |"13x 증가"| gpt2
+    gpt2 --> |"117x 증가"| gpt3
+    gpt3 --> |"~10x 증가"| gpt4
+
+    subgraph paradigm["패러다임 변화"]
+        p1["Fine-tuning 필요"]
+        p2["Zero-shot 가능"]
+        p3["Few-shot 가능"]
+        p4["범용 AI 추구"]
+
+        p1 --> p2
+        p2 --> p3
+        p3 --> p4
+    end
+
+    gpt1 -.-> p1
+    gpt2 -.-> p2
+    gpt3 -.-> p3
+    gpt4 -.-> p4
+
+    style gpt1 fill:#ffcdd2,stroke:#c62828
+    style gpt2 fill:#fff9c4,stroke:#f9a825
+    style gpt3 fill:#c8e6c9,stroke:#2e7d32
+    style gpt4 fill:#bbdefb,stroke:#1565c0
+    style paradigm fill:#f3e5f5,stroke:#7b1fa2

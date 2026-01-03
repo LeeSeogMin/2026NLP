@@ -1,0 +1,28 @@
+%%{init: {'theme': 'base'}}%%
+flowchart TB
+    subgraph Forward["순전파 (Forward Pass)"]
+        direction LR
+        X["입력 X"] --> L1["층 1"]
+        L1 --> L2["층 2"]
+        L2 --> Y["출력 Ŷ"]
+        Y --> LOSS["손실 L"]
+    end
+
+    subgraph Backward["역전파 (Backward Pass)"]
+        direction RL
+        dL["∂L/∂Ŷ"] --> dL2["∂L/∂W₂"]
+        dL2 --> dL1["∂L/∂W₁"]
+    end
+
+    subgraph Update["파라미터 업데이트"]
+        W1["W₁ ← W₁ - η∂L/∂W₁"]
+        W2["W₂ ← W₂ - η∂L/∂W₂"]
+    end
+
+    LOSS --> dL
+    dL1 --> W1
+    dL2 --> W2
+
+    style Forward fill:#e3f2fd
+    style Backward fill:#ffebee
+    style Update fill:#e8f5e9

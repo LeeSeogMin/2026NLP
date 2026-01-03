@@ -1,0 +1,44 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4'}}}%%
+flowchart TB
+    subgraph input["입력 처리"]
+        direction LR
+        tokens["[CLS] 토큰1 토큰2 ... [SEP]"]
+
+        subgraph embeddings["세 가지 임베딩의 합"]
+            token_emb["Token Embedding"]
+            seg_emb["Segment Embedding"]
+            pos_emb["Position Embedding"]
+        end
+
+        tokens --> token_emb
+        tokens --> seg_emb
+        tokens --> pos_emb
+    end
+
+    subgraph encoder["Transformer Encoder (12 layers)"]
+        direction TB
+        layer1["Layer 1: Multi-Head Attention + FFN"]
+        layer2["Layer 2: Multi-Head Attention + FFN"]
+        dots["..."]
+        layer12["Layer 12: Multi-Head Attention + FFN"]
+
+        layer1 --> layer2
+        layer2 --> dots
+        dots --> layer12
+    end
+
+    subgraph output["출력"]
+        direction LR
+        cls_out["[CLS] 출력<br/>(문장 표현)"]
+        token_out["토큰별 출력<br/>(768차원)"]
+    end
+
+    embeddings --> encoder
+    encoder --> output
+
+    style input fill:#fff3e0,stroke:#f57c00
+    style encoder fill:#e3f2fd,stroke:#1976d2
+    style output fill:#e8f5e9,stroke:#388e3c
+    style token_emb fill:#ffcdd2,stroke:#c62828
+    style seg_emb fill:#c8e6c9,stroke:#2e7d32
+    style pos_emb fill:#bbdefb,stroke:#1565c0

@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph input["입력 시퀀스"]
+        X["X = [x₁, x₂, x₃, x₄]"]
+    end
+
+    subgraph projection["Linear Projection"]
+        WQ["W^Q"]
+        WK["W^K"]
+        WV["W^V"]
+    end
+
+    subgraph qkv["Q, K, V 생성"]
+        Q["Q = X × W^Q"]
+        K["K = X × W^K"]
+        V["V = X × W^V"]
+    end
+
+    subgraph attention["Attention 계산"]
+        score["Score = Q × K^T"]
+        scaled["Scaled = Score / √d_k"]
+        weights["Weights = Softmax(Scaled)"]
+        output["Output = Weights × V"]
+    end
+
+    X --> WQ --> Q
+    X --> WK --> K
+    X --> WV --> V
+
+    Q --> score
+    K --> score
+    score --> scaled
+    scaled --> weights
+    weights --> output
+    V --> output
+
+    style X fill:#e3f2fd
+    style Q fill:#bbdefb
+    style K fill:#ffe0b2
+    style V fill:#e1bee7
+    style weights fill:#c8e6c9
+    style output fill:#b2dfdb

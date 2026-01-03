@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base'}}%%
+flowchart LR
+    subgraph Input["입력층"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["x₃"]
+    end
+
+    subgraph Hidden["은닉층"]
+        H1["h₁"]
+        H2["h₂"]
+        H3["h₃"]
+        H4["h₄"]
+    end
+
+    subgraph Output["출력층"]
+        O1["y₁"]
+        O2["y₂"]
+    end
+
+    I1 --> H1
+    I1 --> H2
+    I1 --> H3
+    I1 --> H4
+    I2 --> H1
+    I2 --> H2
+    I2 --> H3
+    I2 --> H4
+    I3 --> H1
+    I3 --> H2
+    I3 --> H3
+    I3 --> H4
+
+    H1 --> O1
+    H1 --> O2
+    H2 --> O1
+    H2 --> O2
+    H3 --> O1
+    H3 --> O2
+    H4 --> O1
+    H4 --> O2
+
+    style Input fill:#fff3e0
+    style Hidden fill:#e3f2fd
+    style Output fill:#e8f5e9

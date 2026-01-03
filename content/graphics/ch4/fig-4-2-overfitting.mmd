@@ -1,0 +1,34 @@
+graph LR
+    subgraph underfitting["과소적합 (Underfitting)"]
+        A1[높은 편향<br/>낮은 분산]
+        A2[학습/검증 손실<br/>모두 높음]
+    end
+
+    subgraph optimal["적정 적합 (Optimal)"]
+        B1[적절한 균형]
+        B2[학습/검증 손실<br/>모두 낮음]
+    end
+
+    subgraph overfitting["과적합 (Overfitting)"]
+        C1[낮은 편향<br/>높은 분산]
+        C2[학습 손실 낮음<br/>검증 손실 높음]
+    end
+
+    underfitting --> optimal --> overfitting
+
+    subgraph prevention["과적합 방지 기법"]
+        direction TB
+        D1[Dropout]
+        D2[BatchNorm]
+        D3[Weight Decay]
+        D4[Early Stopping]
+        D5[Data Augmentation]
+    end
+
+    overfitting -.->|적용| prevention
+    prevention -.->|개선| optimal
+
+    style underfitting fill:#ffcdd2
+    style optimal fill:#c8e6c9
+    style overfitting fill:#fff9c4
+    style prevention fill:#e1bee7

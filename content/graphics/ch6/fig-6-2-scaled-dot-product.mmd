@@ -1,0 +1,31 @@
+flowchart TB
+    subgraph inputs["입력"]
+        Q["Query (Q)"]
+        K["Key (K)"]
+        V["Value (V)"]
+    end
+
+    subgraph attention["Scaled Dot-Product Attention"]
+        matmul1["MatMul<br/>Q × K^T"]
+        scale["Scale<br/>÷ √d_k"]
+        mask["Mask<br/>(optional)"]
+        softmax["Softmax"]
+        matmul2["MatMul"]
+    end
+
+    output["Output"]
+
+    Q --> matmul1
+    K --> matmul1
+    matmul1 --> scale
+    scale --> mask
+    mask --> softmax
+    softmax --> matmul2
+    V --> matmul2
+    matmul2 --> output
+
+    style Q fill:#e3f2fd
+    style K fill:#fff3e0
+    style V fill:#f3e5f5
+    style softmax fill:#c8e6c9
+    style output fill:#bbdefb
