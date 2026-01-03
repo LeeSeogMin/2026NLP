@@ -1,0 +1,42 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4'}}}%%
+flowchart TB
+    subgraph normal["정상 학습"]
+        direction TB
+        n_desc["Train Loss ↓<br/>Val Loss ↓<br/>정상적인 수렴"]
+        n_action["→ 계속 학습"]
+    end
+
+    subgraph overfit["과적합 (Overfitting)"]
+        direction TB
+        o_desc["Train Loss ↓↓<br/>Val Loss ↑<br/>일반화 실패"]
+        o_action["→ Early Stopping<br/>→ Dropout 증가<br/>→ Data Augmentation"]
+    end
+
+    subgraph underfit["과소적합 (Underfitting)"]
+        direction TB
+        u_desc["Train Loss ↑<br/>Val Loss ↑<br/>학습 부족"]
+        u_action["→ 에폭 증가<br/>→ 모델 크기 증가<br/>→ 학습률 조정"]
+    end
+
+    subgraph monitoring["모니터링 도구"]
+        direction LR
+        tb["TensorBoard"]
+        wandb["W&B"]
+        mlflow["MLflow"]
+    end
+
+    subgraph metrics["주요 모니터링 지표"]
+        m1["Loss (Train/Val)"]
+        m2["Accuracy, F1"]
+        m3["Learning Rate"]
+        m4["Gradient Norm"]
+    end
+
+    normal ~~~ overfit ~~~ underfit
+    monitoring --> metrics
+
+    style normal fill:#c8e6c9,stroke:#2e7d32
+    style overfit fill:#ffcdd2,stroke:#c62828
+    style underfit fill:#fff9c4,stroke:#f9a825
+    style monitoring fill:#e3f2fd,stroke:#1976d2
+    style metrics fill:#f3e5f5,stroke:#7b1fa2

@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph Indexing["인덱싱 단계 (오프라인)"]
+        D1["1. 문서 수집"]
+        D2["2. 청킹<br/>(Chunking)"]
+        D3["3. 임베딩 생성"]
+        D4["4. Vector DB 저장"]
+        D1 --> D2 --> D3 --> D4
+    end
+
+    subgraph Retrieval["검색 단계 (온라인)"]
+        Q1["5. 쿼리 입력"]
+        Q2["6. 쿼리 임베딩"]
+        Q3["7. 유사도 검색<br/>(Top-k)"]
+        Q1 --> Q2 --> Q3
+    end
+
+    subgraph Generation["생성 단계"]
+        G1["8. 컨텍스트 구성"]
+        G2["9. LLM 프롬프트"]
+        G3["10. 답변 생성"]
+        G1 --> G2 --> G3
+    end
+
+    D4 -.-> Q3
+    Q3 --> G1
+
+    style D4 fill:#FFD700
+    style Q3 fill:#87CEEB
+    style G3 fill:#90EE90

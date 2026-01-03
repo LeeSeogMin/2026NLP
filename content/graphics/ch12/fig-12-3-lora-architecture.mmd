@@ -1,0 +1,26 @@
+flowchart LR
+    subgraph Input["입력"]
+        X["x<br/>(d차원)"]
+    end
+
+    subgraph Frozen["동결된 가중치"]
+        W["W<br/>(d × k)<br/>사전학습 가중치"]
+    end
+
+    subgraph LoRA["LoRA 어댑터"]
+        A["A<br/>(r × k)<br/>학습"]
+        B["B<br/>(d × r)<br/>학습"]
+        A --> B
+    end
+
+    subgraph Output["출력"]
+        Y["y = Wx + BAx<br/>(k차원)"]
+    end
+
+    X --> W --> Y
+    X --> A
+    B --> Y
+
+    style W fill:#ffcccc
+    style A fill:#ccffcc
+    style B fill:#ccffcc

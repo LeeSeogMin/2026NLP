@@ -134,7 +134,7 @@ def setup_training_arguments():
         learning_rate=2e-5,               # 학습률
         weight_decay=0.01,                # 가중치 감쇠
         warmup_steps=10,                  # 워밍업 스텝
-        evaluation_strategy="epoch",      # 평가 전략
+        eval_strategy="epoch",            # 평가 전략
         save_strategy="epoch",            # 저장 전략
         load_best_model_at_end=True,      # 최종 모델 로드
         logging_steps=5,                  # 로깅 간격
@@ -149,7 +149,7 @@ def setup_training_arguments():
     print(f"    batch_size: {training_args.per_device_train_batch_size}")
     print(f"    weight_decay: {training_args.weight_decay}")
     print(f"    warmup_steps: {training_args.warmup_steps}")
-    print(f"    evaluation_strategy: {training_args.evaluation_strategy}")
+    print(f"    eval_strategy: {training_args.eval_strategy}")
 
     return training_args
 

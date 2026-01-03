@@ -1,0 +1,33 @@
+flowchart TB
+    subgraph Define["1. 문제 정의"]
+        D1["태스크 선정"]
+        D2["데이터 확보"]
+        D3["평가 지표 설정"]
+    end
+
+    subgraph Implement["2. 구현"]
+        I1["데이터 전처리"]
+        I2["모델 선택/설계"]
+        I3["학습 및 튜닝"]
+    end
+
+    subgraph Evaluate["3. 평가"]
+        E1["정량적 평가"]
+        E2["정성적 분석"]
+        E3["오류 분석"]
+    end
+
+    subgraph Present["4. 발표"]
+        P1["보고서 작성"]
+        P2["시각화"]
+        P3["데모 준비"]
+    end
+
+    Define --> Implement
+    Implement --> Evaluate
+    Evaluate --> Present
+
+    style Define fill:#E6E6FA
+    style Implement fill:#87CEEB
+    style Evaluate fill:#90EE90
+    style Present fill:#FFD700

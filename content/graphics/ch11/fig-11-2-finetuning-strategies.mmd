@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4285f4'}}}%%
+flowchart TB
+    subgraph feature["Feature Extraction"]
+        direction TB
+        f_bert["BERT Encoder<br/>(가중치 동결 ❄️)"]
+        f_head["분류 헤드<br/>(학습 ✓)"]
+        f_bert --> f_head
+
+        f_info["학습 파라미터: ~0.01%<br/>적은 데이터에 적합"]
+    end
+
+    subgraph partial["Partial Fine-tuning"]
+        direction TB
+        p_lower["하위 레이어<br/>(동결 ❄️)"]
+        p_upper["상위 레이어<br/>(학습 ✓)"]
+        p_head["분류 헤드<br/>(학습 ✓)"]
+        p_lower --> p_upper --> p_head
+
+        p_info["학습 파라미터: ~10-20%<br/>중간 수준 데이터"]
+    end
+
+    subgraph full["Full Fine-tuning"]
+        direction TB
+        full_bert["BERT Encoder<br/>(학습 ✓)"]
+        full_head["분류 헤드<br/>(학습 ✓)"]
+        full_bert --> full_head
+
+        full_info["학습 파라미터: 100%<br/>많은 데이터 필요"]
+    end
+
+    subgraph decision["전략 선택 기준"]
+        direction LR
+        d1["데이터 양"]
+        d2["도메인 유사도"]
+        d3["계산 자원"]
+    end
+
+    feature -.-> decision
+    partial -.-> decision
+    full -.-> decision
+
+    style feature fill:#e3f2fd,stroke:#1976d2
+    style partial fill:#fff9c4,stroke:#f9a825
+    style full fill:#ffcdd2,stroke:#c62828
+    style decision fill:#f3e5f5,stroke:#7b1fa2

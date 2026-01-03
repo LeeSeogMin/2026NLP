@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph Full["Full Fine-tuning"]
+        F1[사전 학습 모델<br/>109M 파라미터]
+        F2[전체 가중치 학습<br/>100%]
+        F3[태스크별 전체 모델 저장<br/>~400MB]
+        F1 --> F2 --> F3
+    end
+
+    subgraph PEFT["PEFT (LoRA)"]
+        P1[사전 학습 모델<br/>109M 파라미터]
+        P2[LoRA 가중치만 학습<br/>~1%]
+        P3[어댑터만 저장<br/>~3MB]
+        P1 --> P2 --> P3
+    end
+
+    style Full fill:#ffcccc
+    style PEFT fill:#ccffcc
