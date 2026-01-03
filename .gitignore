@@ -96,6 +96,10 @@ practice/**/code/*.pth
 practice/**/code/*.pkl
 practice/**/code/*.joblib
 practice/**/code/checkpoints/
+practice/**/results/
+practice/**/imdb_results/
+*.safetensors
+*.ckpt
 
 # 로그 파일
 *.log
