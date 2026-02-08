@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph CBOW["CBOW (Continuous Bag of Words)"]
+        direction TB
+        C1["나는"] --> P1["Hidden Layer"]
+        C2["오늘"] --> P1
+        C3["에"] --> P1
+        C4["갔다"] --> P1
+        P1 --> T1["학교 (예측)"]
+    end
+
+    subgraph Skip["Skip-gram"]
+        direction TB
+        T2["학교 (입력)"] --> P2["Hidden Layer"]
+        P2 --> C5["나는"]
+        P2 --> C6["오늘"]
+        P2 --> C7["에"]
+        P2 --> C8["갔다"]
+    end

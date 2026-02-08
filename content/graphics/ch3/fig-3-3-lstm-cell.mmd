@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph LSTM["LSTM 셀 구조"]
+        direction TB
+        CS_prev["Cₜ₋₁ 이전 셀 상태"] --> FG
+        FG["Forget Gate<br/>무엇을 잊을까?"] --> MUL1["×"]
+        CS_prev --> MUL1
+
+        IG["Input Gate<br/>무엇을 기억할까?"] --> MUL2["×"]
+        NEW["새 후보값 C̃ₜ"] --> MUL2
+
+        MUL1 --> ADD["+"]
+        MUL2 --> ADD
+        ADD --> CS_new["Cₜ 새 셀 상태"]
+
+        CS_new --> OG["Output Gate<br/>무엇을 출력할까?"]
+        OG --> HT["hₜ 출력"]
+    end

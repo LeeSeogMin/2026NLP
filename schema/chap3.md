@@ -1,138 +1,118 @@
-# 3장 집필계획서: 딥러닝의 핵심 - 신경망과 학습 원리
+# 3장 집필계획서: 시퀀스 모델에서 Transformer로
 
 ## 개요
 
-**장 제목**: 딥러닝의 핵심: 신경망과 학습 원리
+**장 제목**: 시퀀스 모델에서 Transformer로
 **대상 독자**: 딥러닝과 자연어처리를 처음 배우는 학부생 (3~4학년)
 **장 유형**: 핵심 기술 장 (이론:실습 = 60:40)
 **예상 분량**: 600-700줄
+
+> **미션**: 수업이 끝나면 Attention이 문장의 어디에 집중하는지 시각화한다
 
 ---
 
 ## 학습 목표
 
 이 장을 마치면 다음을 수행할 수 있다:
-- 인공 신경망의 기본 구조와 작동 원리를 설명할 수 있다
-- 다양한 활성화 함수의 특징과 사용 시점을 이해한다
-- 손실 함수와 경사 하강법의 원리를 설명할 수 있다
-- 역전파 알고리즘의 동작 방식을 이해한다
-- PyTorch로 간단한 신경망을 구현하고 학습시킬 수 있다
+
+1. 단어 임베딩의 원리와 Word2Vec의 학습 방식을 설명할 수 있다
+2. RNN/LSTM/GRU의 구조와 장기 의존성 문제를 이해한다
+3. Attention 메커니즘의 Query, Key, Value 개념을 설명할 수 있다
+4. Self-Attention과 Multi-Head Attention을 구현할 수 있다
+5. Attention Weight를 시각화하고 해석할 수 있다
+
+---
+
+## 3교시 구조
+
+| 시간 | 구분 | 내용 |
+|------|------|------|
+| 00:00~00:50 | **1교시** | 임베딩 + RNN/LSTM 개념 |
+| 00:50~01:00 | 쉬는시간 | |
+| 01:00~01:50 | **2교시** | Attention + Self-Attention + Multi-Head |
+| 01:50~02:00 | 쉬는시간 | |
+| 02:00~02:50 | **3교시** | Attention 구현 + 시각화 실습 + 과제 |
 
 ---
 
 ## 절 구성
 
-### 3.1 인공 신경망의 기본 구조 (~120줄)
+### 3.1 순차 데이터와 단어 임베딩 (~120줄) — 1교시
 
 **핵심 내용**:
-- 생물학적 뉴런과 인공 뉴런
-  - 생물학적 뉴런의 구조 (수상돌기, 세포체, 축삭)
-  - 인공 뉴런의 수학적 모델
-- 퍼셉트론(Perceptron)의 구조와 한계
-  - 퍼셉트론의 구조: 입력, 가중치, 편향, 활성화 함수
-  - 단층 퍼셉트론의 한계 (XOR 문제)
-- 다층 퍼셉트론(MLP)과 은닉층
-  - 은닉층의 역할
-  - 비선형성 도입의 중요성
-- 가중치(Weights)와 편향(Bias)의 역할
-  - 가중치: 입력의 중요도
-  - 편향: 활성화 임계값 조정
+- 순차 데이터의 특성: 순서가 의미를 가지는 데이터
+- One-hot Encoding의 한계: 고차원, 의미 관계 표현 불가
+- 분포 가설: "비슷한 문맥의 단어는 비슷한 의미를 갖는다"
+- Word2Vec 원리:
+  - CBOW: 주변 단어로 중심 단어 예측
+  - Skip-gram: 중심 단어로 주변 단어 예측
+- 임베딩 공간의 의미적 특성: "왕 - 남자 + 여자 = 여왕"
+- 사전학습 임베딩: GloVe, FastText
+
+**직관적 비유**: "왕 - 남자 + 여자 = 여왕"이 성립하는 마법 같은 공간
 
 **다이어그램**:
-- 생물학적 뉴런 vs 인공 뉴런 대비도
-- 퍼셉트론 구조 다이어그램
-- MLP 구조 다이어그램
+- fig-3-1-embedding-space.mmd: 임베딩 공간 시각화 (2D)
+- fig-3-2-word2vec.mmd: Word2Vec (CBOW/Skip-gram) 구조
 
-### 3.2 활성화 함수 (~100줄)
-
-**핵심 내용**:
-- 활성화 함수의 필요성
-  - 비선형성 도입
-  - 선형 변환만으로는 복잡한 패턴 학습 불가
-- Sigmoid 함수
-  - 수식: σ(x) = 1/(1+e^(-x))
-  - 출력 범위: (0, 1)
-  - 장점과 단점 (기울기 소실 문제)
-- Tanh 함수
-  - 수식: tanh(x) = (e^x - e^(-x))/(e^x + e^(-x))
-  - 출력 범위: (-1, 1)
-- ReLU, Leaky ReLU, GELU
-  - ReLU: f(x) = max(0, x)
-  - Leaky ReLU: f(x) = max(αx, x)
-  - GELU: 최신 Transformer에서 사용
-- Softmax (출력층)
-  - 다중 클래스 분류에서의 역할
-  - 확률 분포 출력
-
-**다이어그램**: 활성화 함수 그래프 비교
-
-### 3.3 손실 함수 (~100줄)
+### 3.2 RNN/LSTM/GRU (개념 중심) (~120줄) — 1교시
 
 **핵심 내용**:
-- 손실 함수의 개념
-  - 모델 예측과 실제 값의 차이 측정
-  - 최적화의 목표
-- 회귀 문제의 손실 함수
-  - MSE (Mean Squared Error)
-  - MAE (Mean Absolute Error)
-  - 각각의 특성과 사용 시점
-- 분류 문제의 손실 함수
-  - Binary Cross-Entropy
-  - Categorical Cross-Entropy
-  - 정보 이론적 해석
-- 손실 함수와 최적화의 관계
-  - 손실 표면(Loss Surface)의 개념
-  - 전역 최소점과 지역 최소점
+- RNN의 구조: 이전 은닉 상태를 현재 입력과 함께 처리
+- 장기 의존성 문제: 긴 문장에서 앞부분 정보 소실
+- LSTM: Cell State + 3개 Gate (Forget, Input, Output)
+- GRU: LSTM 간소화 (2개 Gate: Reset, Update)
+- Seq2Seq 모델과 Encoder-Decoder 구조
+- RNN 계열의 한계: 순차 처리(병렬화 불가), 긴 문맥 어려움
 
-**다이어그램**: 손실 함수 시각화 (3D 손실 표면)
-
-### 3.4 최적화 알고리즘 (~140줄)
-
-**핵심 내용**:
-- 경사 하강법(Gradient Descent)의 원리
-  - 직관적 설명: 언덕에서 내려가기
-  - 수식: θ = θ - η∇L(θ)
-  - 학습률(Learning Rate)의 중요성
-- Batch GD vs Mini-batch GD vs Stochastic GD
-  - 각 방식의 장단점
-  - 메모리와 수렴 속도 트레이드오프
-- 역전파(Backpropagation) 알고리즘
-  - 연쇄 법칙(Chain Rule)
-  - 순전파와 역전파의 흐름
-  - 각 층의 기울기 계산 과정
-- 고급 옵티마이저 소개
-  - Momentum
-  - Adam (Adaptive Moment Estimation)
+**직관적 비유**: RNN은 "기억력 있는 신경망", LSTM은 "선택적 기억장치"
 
 **다이어그램**:
-- 경사 하강법 시각화
-- 역전파 연쇄 법칙 흐름도
+- fig-3-3-rnn-unrolled.mmd: RNN 펼친 구조
+- fig-3-4-lstm-cell.mmd: LSTM 셀 구조
 
-### 3.5 실습: PyTorch 기초 (~140줄)
+### 3.3 Attention 메커니즘 (~130줄) — 2교시
 
 **핵심 내용**:
-- Tensor 기본 조작
-  - 텐서 생성 (torch.tensor, torch.zeros, torch.randn)
-  - 텐서 연산 (덧셈, 곱셈, 행렬 곱)
-  - 인덱싱과 슬라이싱
-- Autograd를 이용한 자동 미분
-  - requires_grad 설정
-  - backward() 호출
-  - grad 속성 확인
-- 간단한 선형 회귀 모델 구현
-  - 수동 구현 (forward, backward)
-  - nn.Linear 사용
-- MLP 모델 직접 설계 및 학습
-  - nn.Module 상속
-  - forward 메서드 정의
-  - 학습 루프 구현
+- Attention의 동기: 모든 정보를 같은 비중으로 볼 수 없다
+- Query, Key, Value 개념
+- Scaled Dot-Product Attention 수식과 단계별 풀이
+  - Attention(Q, K, V) = softmax(QKᵀ / √dₖ) · V
+- Attention Weight의 의미와 해석
+- √dₖ로 나누는 이유: 내적 값이 커지면 softmax가 극단적이 됨
 
-**실습 코드**:
-- `3-1-신경망기초.py`: 퍼셉트론과 MLP 시각화
-- `3-2-활성화함수.py`: 활성화 함수 비교
-- `3-5-pytorch기초.py`: Tensor와 Autograd
-- `3-5-선형회귀.py`: 선형 회귀 모델
-- `3-5-mlp.py`: MLP 모델 구현
+**직관적 비유**: 시험 공부할 때 중요한 부분에 밑줄 긋고 집중하는 것
+Query = "질문", Key = "후보 답의 라벨", Value = "실제 답의 내용"
+
+**다이어그램**:
+- fig-3-5-attention-mechanism.mmd: Attention 계산 흐름
+
+### 3.4 Self-Attention과 Multi-Head Attention (~130줄) — 2교시
+
+**핵심 내용**:
+- Self-Attention: 문장 안에서 단어들이 서로를 바라보는 것
+- Q, K, V가 모두 같은 입력에서 나오는 구조
+- Multi-Head Attention: 여러 관점에서 동시에 바라보기
+  - 각 Head가 다른 관계를 포착 (문법적, 의미적)
+- Concatenation과 Linear Projection
+- Attention vs Self-Attention vs Cross-Attention 비교
+
+**직관적 비유**: "나는 은행에서 돈을 찾았다"에서 "은행"이 "돈"에 높은 Attention → 금융기관
+
+**다이어그램**:
+- fig-3-6-self-attention.mmd: Self-Attention 계산 과정
+- fig-3-7-multi-head.mmd: Multi-Head Attention 구조
+
+### 3.5 실습 (~100줄) — 3교시
+
+**핵심 내용**:
+- 사전학습 임베딩 로드 및 단어 유사도 측정
+- Scaled Dot-Product Attention 직접 구현
+- Self-Attention 모듈 단계별 구현
+- Multi-Head Attention으로 확장
+- Attention Weight 히트맵 시각화
+
+**과제**: Self-Attention 모듈 구현 + Attention 시각화 리포트
 
 ---
 
@@ -140,75 +120,25 @@
 
 ### 문서
 - `schema/chap3.md`: 집필계획서 (이 파일)
-- `content/research/ch3-research.md`: 리서치 결과
 - `content/drafts/ch3-draft.md`: 초안
 - `content/reviews/ch3-review.md`: Multi-LLM 리뷰 결과
 - `docs/ch3.md`: 최종 완성본
 
 ### 실습 코드
-- `practice/chapter3/code/3-1-신경망기초.py`
-- `practice/chapter3/code/3-2-활성화함수.py`
-- `practice/chapter3/code/3-5-pytorch기초.py`
-- `practice/chapter3/code/3-5-선형회귀.py`
-- `practice/chapter3/code/3-5-mlp.py`
+- `practice/chapter3/code/3-1-임베딩.py`: Word2Vec 임베딩 실습
+- `practice/chapter3/code/3-3-어텐션.py`: Attention 메커니즘 구현
+- `practice/chapter3/code/3-5-실습.py`: 통합 실습 (Self-Attention + 시각화)
 - `practice/chapter3/code/requirements.txt`
 
 ### 그래픽
-- `content/graphics/ch3/fig-3-1-neuron.mmd`: 뉴런 구조
-- `content/graphics/ch3/fig-3-2-perceptron.mmd`: 퍼셉트론 구조
-- `content/graphics/ch3/fig-3-3-mlp.mmd`: MLP 구조
-- `content/graphics/ch3/fig-3-4-activation.mmd`: 활성화 함수
-- `content/graphics/ch3/fig-3-5-gradient-descent.mmd`: 경사 하강법
-- `content/graphics/ch3/fig-3-6-backprop.mmd`: 역전파 흐름
+- `content/graphics/ch3/fig-3-1-embedding-space.mmd`
+- `content/graphics/ch3/fig-3-2-word2vec.mmd`
+- `content/graphics/ch3/fig-3-3-rnn-unrolled.mmd`
+- `content/graphics/ch3/fig-3-4-lstm-cell.mmd`
+- `content/graphics/ch3/fig-3-5-attention-mechanism.mmd`
+- `content/graphics/ch3/fig-3-6-self-attention.mmd`
+- `content/graphics/ch3/fig-3-7-multi-head.mmd`
 
 ---
 
-## 7단계 워크플로우 실행 계획
-
-### 1단계: 집필계획서 작성 ✓
-- `schema/chap3.md` 작성
-
-### 2단계: 자료 조사
-- 인공 신경망의 역사와 발전
-- 활성화 함수 특성 및 최신 연구
-- 최적화 알고리즘 비교
-- PyTorch 공식 문서 참조
-
-### 3단계: 정보 구조화
-- 핵심 개념 정리
-- 다이어그램 설계
-- 실습 시나리오 구성
-
-### 4단계: 구현 및 문서화
-- 실습 코드 작성 및 실행
-- 본문 초안 작성
-- Mermaid 다이어그램 제작
-
-### 5단계: 최적화
-- 문체 일관성 검토
-- 분량 조정
-- 용어 통일
-
-### 6단계: 품질 검증
-- Multi-LLM Review (GPT-4o, Grok-3)
-- 학부생 눈높이 확인
-- 코드 실행 결과 확인
-- `docs/ch3.md`로 최종 저장
-
-### 7단계: MS Word 변환
-- `npm run convert:chapter 3` 실행
-
----
-
-## 핵심 키워드
-
-- 인공 뉴런, 퍼셉트론, 다층 퍼셉트론(MLP)
-- 가중치, 편향, 은닉층
-- 활성화 함수: Sigmoid, Tanh, ReLU, GELU, Softmax
-- 손실 함수: MSE, MAE, Cross-Entropy
-- 경사 하강법, 역전파, Chain Rule
-- PyTorch, Tensor, Autograd
-
----
-
-**작성일**: 2026-01-02
+**작성일**: 2026-02-08
