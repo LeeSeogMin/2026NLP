@@ -35,14 +35,13 @@ python scripts/notion_publish.py --contents    # 목차 발행
 python scripts/notion_publish.py --chapter 2 --dry-run  # 파싱 테스트
 ```
 
-### Python 실습 환경
+### Python 실습 환경 (통합 가상환경)
 ```bash
-cd practice/chapter{N}
 python -m venv venv
 source venv/bin/activate               # macOS/Linux
 # venv\Scripts\activate                # Windows
-pip install -r code/requirements.txt
-python code/{N}-{M}-{주제}.py          # 실습 코드 실행
+pip install -r requirements.txt        # 프로젝트 루트의 통합 requirements
+python practice/chapter{N}/code/{N}-{M}-{주제}.py   # 실습 코드 실행
 ```
 
 ### 실습 도구: VS Code + GitHub Copilot

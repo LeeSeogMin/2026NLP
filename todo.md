@@ -32,15 +32,14 @@
 
 구버전 문서를 기반으로 신 강의계획서 형식에 맞게 수정한다.
 
-#### ch1: AI 시대의 개막과 개발 환경 구축
-- [ ] 집필계획서 (schema/chap1.md)
-- [ ] 리서치 (content/research/ch1-research.md)
-- [ ] 초안 (content/drafts/ch1-draft.md)
-- [ ] 실습 코드 (practice/chapter1/code/)
-- [ ] 그래픽 (content/graphics/ch1/)
-- [ ] Multi-LLM 리뷰 (GPT-4o + Grok-4)
-- [ ] 최종 원고 (docs/ch1.md)
-> **참고**: 구 ch1 (AI 시대의 개막과 개발 환경 **준비**) + 3교시제/Copilot 실습 추가
+#### ch1: AI 시대의 개막과 개발 환경 구축 — ✅ 완료 (2026-02-11)
+- [x] 집필계획서 (schema/chap1.md)
+- [x] 리서치 (구버전 재활용 + 2024-2026 NLP 동향 조사)
+- [x] 실습 코드 (practice/chapter1/code/ — 3개 파일, 실행 결과 확인)
+- [x] 그래픽 (content/graphics/ch1/ — Mermaid 2개)
+- [x] Multi-LLM 리뷰 (GPT-4o 평균 8.7 + Grok-4 평균 9.3)
+- [x] 최종 원고 (docs/ch1.md — 610줄)
+> **변경사항**: 구 ch1 재활용 + 3교시제 + 1.3 Tensor/Autograd 신규 + 1.4 Copilot 실습 신규
 
 #### ch8: 토픽 모델링
 - [ ] 집필계획서
@@ -66,15 +65,14 @@
 
 구버전 자산을 참고하되 신 강의계획서에 맞게 새로 작성한다.
 
-#### ch2: 딥러닝 핵심 원리와 PyTorch 실전
-- [ ] 집필계획서
-- [ ] 리서치
-- [ ] 초안
-- [ ] 실습 코드
-- [ ] 그래픽
-- [ ] Multi-LLM 리뷰
-- [ ] 최종 원고
-> **참고 자산**: 구 ch3 (신경망 기초) + 구 ch4 (PyTorch 개발) 합쳐서 재구성
+#### ch2: 딥러닝 핵심 원리와 PyTorch 실전 — ✅ 완료 (2026-02-11)
+- [x] 집필계획서 (schema/chap2.md)
+- [x] 리서치 (구 ch4 재활용 + 신경망 기초 신규)
+- [x] 실습 코드 (practice/chapter2/code/ — 3개 파일, 실행 결과 확인)
+- [x] 그래픽 (content/graphics/ch2/ — Mermaid 3개)
+- [x] Multi-LLM 리뷰 (GPT-4o 평균 8.5 + Grok-4 평균 8.3)
+- [x] 최종 원고 (docs/ch2.md — 718줄)
+> **변경사항**: 구 ch4 재활용 + 1교시 신경망 기초 신규 + 3교시제 + BoW 텍스트 분류 실습
 
 #### ch4: Transformer 아키텍처 심층 분석
 - [ ] 집필계획서
@@ -191,5 +189,5 @@
 ---
 
 **마지막 업데이트**: 2026-02-11
-**현재 Phase**: Phase 2 (신 강의계획서 기반 재집필) 시작
-**다음 작업**: ch1 소폭수정 또는 ch2 재작성부터 시작
+**현재 Phase**: Phase 2 진행 중 (ch1, ch2 완료)
+**다음 작업**: ch4 재작성 또는 ch8/ch14 소폭수정

@@ -1,0 +1,29 @@
+flowchart TD
+    A["데이터 준비<br/>Dataset + DataLoader"] --> B["에폭 시작"]
+
+    subgraph training["Training Loop"]
+        B --> C["model.train()"]
+        C --> D["배치 로드"]
+        D --> E["순전파 (Forward)"]
+        E --> F["손실 계산 (Loss)"]
+        F --> G["역전파 (Backward)"]
+        G --> H["파라미터 업데이트<br/>(optimizer.step)"]
+        H --> I{"다음 배치?"}
+        I -->|"예"| D
+    end
+
+    subgraph validation["Validation Loop"]
+        I -->|"아니오"| J["model.eval()"]
+        J --> K["torch.no_grad()"]
+        K --> L["검증 손실/정확도 계산"]
+    end
+
+    L --> M{"Early Stopping?"}
+    M -->|"아니오"| N{"다음 에폭?"}
+    N -->|"예"| B
+    M -->|"예"| O["학습 종료"]
+    N -->|"아니오"| O
+
+    style training fill:#e3f2fd
+    style validation fill:#e8f5e9
+    style O fill:#fff9c4

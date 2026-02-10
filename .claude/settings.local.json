@@ -6,7 +6,17 @@
       "Bash(where pip:*)",
       "Bash(C:/Users/user/AppData/Local/Programs/Python/Python312/python.exe:*)",
       "Bash(git checkout:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(xargs:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(ls:*)",
+      "Bash(/Users/callii/Documents/2026NLP/venv/bin/python3 -m pip install:*)",
+      "Bash(/Users/callii/Documents/2026NLP/venv/bin/python3:*)",
+      "Bash(test:*)",
+      "Bash(curl:*)"
     ]
   }
 }
