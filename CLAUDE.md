@@ -10,6 +10,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > **대상 독자**: 컴퓨터공학/AI 전공 학부생 (3~4학년)
 > **집필 목표**: LLM의 원리를 깊이 이해하고, 실무에서 모델을 설계·튜닝·배포할 수 있는 AI 엔지니어를 양성하되, 직관적 비유와 단계적 설명으로 학부생이 쉽게 따라올 수 있도록 함
 
+## 외부 메모리 전략
+
+작업 시작 전 반드시 아래 파일을 참조하여 현재 상태를 파악한다:
+
+| 파일 | 역할 | 갱신 시점 |
+|------|------|----------|
+| `context.md` | 프로젝트 목표, 완료된 작업, 현재 상태, 다음 단계 | 주요 작업 완료 시 |
+| `todo.md` | Phase별 작업 체크리스트 | 작업 완료/추가 시 |
+| `contents.md` | 최종 목차 (15주차 구성) | 목차 변경 시 |
+
+**CRITICAL**: 작업 완료 후 반드시 `context.md`와 `todo.md`를 업데이트한다.
+
+---
+
 ## 빠른 시작 명령어
 
 ### Notion 발행 (수업자료 배포)
@@ -19,14 +33,6 @@ python scripts/notion_publish.py --chapter 2   # 개별 챕터 발행
 python scripts/notion_publish.py --all         # 전체 발행
 python scripts/notion_publish.py --contents    # 목차 발행
 python scripts/notion_publish.py --chapter 2 --dry-run  # 파싱 테스트
-```
-
-### MS Word 변환 (인쇄용)
-```bash
-cd ms-word && npm install              # 의존성 설치 (최초 1회)
-npm run convert:chapter 2              # 개별 챕터 변환 (예: 2장)
-npm run convert:all                    # 모든 챕터 일괄 변환
-npm run create:book                    # 완전한 통합 도서 생성
 ```
 
 ### Python 실습 환경
@@ -162,7 +168,7 @@ python code/{N}-{M}-{주제}.py          # 실습 코드 실행
 - 결과 해석 및 실무적 시사점 도출
 
 #### 4.4 표준 참조 문서
-**집필 시 반드시 참조**: `docs/sample.md`
+**집필 시 반드시 참조**: `docs/ch3.md`
 - practice 폴더 참조 형식: `_전체 코드는 practice/chapter{N}/code/{파일명}.py 참고_`
 
 #### 4.5 그래픽 활용 원칙 (CRITICAL)
@@ -227,7 +233,7 @@ project/
 │   ├── graphics/          # 다이어그램/시각자료
 │   └── reviews/           # LLM 리뷰 결과
 ├── docs/                  # 최종 완성 원고 (검토 완료)
-│   ├── sample.md          # 집필 표준 참조 문서
+│   ├── ch3.md             # 집필 표준 참조 문서 (3장 완성본)
 │   └── ch{N}.md
 ├── practice/              # 실습 코드 및 데이터
 │   └── chapter{N}/
@@ -237,14 +243,9 @@ project/
 │       └── data/          # 실제/가상 데이터
 │           ├── input/
 │           └── output/
-├── ms-word/               # MS Word 변환 시스템
-│   ├── config/            # 설정 파일
-│   ├── src/               # 변환 스크립트
-│   ├── output/            # 생성된 Word 파일
-│   └── templates/         # 템플릿 (머리말, 참고문헌 등)
 ├── checklists/            # 진행 체크리스트
 ├── scripts/               # 자동화 스크립트
-└── _archive/              # 이전 프로젝트 백업
+└── _archive/              # 구버전 자산 보관 (old-syllabus/)
 ```
 
 ---
@@ -283,8 +284,7 @@ project/
         │
         ▼
 [7단계: 발행]
-    ├── Notion 발행 ──▶ Notion 페이지 (수업자료 배포)
-    └── MS Word 변환 ──▶ ms-word/output/*.docx (인쇄용)
+    └── Notion 발행 ──▶ Notion 페이지 (수업자료 배포)
 ```
 
 ### 필수 단계 (5-7단계는 자동 수행)
@@ -294,10 +294,9 @@ project/
 #### 작업 명령어 해석 기준
 | 사용자 명령 | 수행 범위 | 비고 |
 |---|---|---|
-| "N장 작성" | 1~7단계 전체 | **모든 단계 자동 수행** (Notion 발행 + Word 변환) |
+| "N장 작성" | 1~7단계 전체 | **모든 단계 자동 수행** (Notion 발행 포함) |
 | "N장 검토" | 5~7단계 | 일관성 검증 + 품질 리뷰 + 발행 |
-| "N장 변환" | 7단계만 | docs/ch{N}.md → Notion + Word |
-| "N장 발행" | Notion 발행만 | docs/ch{N}.md → Notion 페이지 |
+| "N장 발행" | 7단계만 | docs/ch{N}.md → Notion 페이지 |
 
 ---
 
@@ -415,26 +414,6 @@ curl -s https://api.x.ai/v1/chat/completions \
 ## 체크리스트 위치
 
 진행 상황은 `checklists/book-progress.md`에서 추적합니다.
-
----
-
-## MS Word 변환 시스템
-
-### 개요
-완성된 Markdown 원고(`docs/ch{N}.md`)를 전문적인 MS Word 문서(`.docx`)로 변환합니다.
-
-### 사용법
-```bash
-cd ms-word
-npm install                    # 의존성 설치 (최초 1회)
-npm run convert:chapter 2      # 개별 챕터 변환
-npm run convert:all            # 모든 챕터 일괄 변환
-npm run create:book            # 완전한 통합 도서 생성
-```
-
-### 출력 파일
-- **개별 챕터**: `ms-word/output/ch{N}.docx`
-- **통합 도서**: `ms-word/output/{project}-complete-book.docx`
 
 ---
 

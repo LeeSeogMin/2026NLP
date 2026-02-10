@@ -4,7 +4,9 @@
       "Bash(pip install:*)",
       "Bash(where:*)",
       "Bash(where pip:*)",
-      "Bash(C:/Users/user/AppData/Local/Programs/Python/Python312/python.exe:*)"
+      "Bash(C:/Users/user/AppData/Local/Programs/Python/Python312/python.exe:*)",
+      "Bash(git checkout:*)",
+      "Bash(echo:*)"
     ]
   }
 }
