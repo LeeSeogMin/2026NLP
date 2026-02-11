@@ -1,0 +1,40 @@
+flowchart TB
+    subgraph process["GPT 자기회귀 생성 과정"]
+        direction LR
+        p1["프롬프트 입력<br/>'The future of'"] --> p2["모델이 다음 토큰<br/>확률 분포 출력"]
+        p2 --> p3["디코딩 전략으로<br/>토큰 선택"]
+        p3 --> p4["선택한 토큰을<br/>입력에 추가"]
+        p4 -->|"반복"| p2
+    end
+
+    subgraph strategies["디코딩 전략"]
+        direction TB
+
+        subgraph greedy["Greedy Search"]
+            g_desc["매번 최고 확률 토큰 선택<br/>빠르지만 반복적"]
+        end
+
+        subgraph beam["Beam Search"]
+            b_desc["K개 후보 동시 추적<br/>품질↑ 다양성↓"]
+        end
+
+        subgraph sampling["Sampling 기법"]
+            direction TB
+            temp["Temperature<br/>T&lt;1: 보수적<br/>T&gt;1: 창의적"]
+            topk["Top-k<br/>상위 k개에서 샘플링"]
+            topp["Top-p (Nucleus)<br/>누적확률 p까지 샘플링"]
+
+            temp --- topk --- topp
+        end
+    end
+
+    subgraph recommend["권장 설정"]
+        direction LR
+        r1["챗봇<br/>T=0.7, p=0.9"]
+        r2["창작<br/>T=0.9, p=0.95"]
+        r3["코드<br/>T=0.2, p=0.95"]
+        r4["번역<br/>Beam k=4"]
+    end
+
+    process --> strategies
+    strategies --> recommend

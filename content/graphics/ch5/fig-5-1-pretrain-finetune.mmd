@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph pretrain["사전학습 (Pre-training)"]
+        direction TB
+        data["대규모 비레이블 텍스트<br/>BooksCorpus + Wikipedia<br/>(수십억 단어)"]
+        model["Transformer 모델"]
+        obj["학습 목표:<br/>MLM (빈칸 채우기)<br/>또는 Next Token Prediction"]
+
+        data --> model --> obj
+    end
+
+    subgraph finetune["파인튜닝 (Fine-tuning)"]
+        direction TB
+        pretrained["사전학습된 모델<br/>(언어를 이해하는 상태)"]
+        task_data["소량의 레이블 데이터<br/>(수천~수만 개)"]
+        head["태스크별 출력층 추가"]
+
+        pretrained --> head
+        task_data --> head
+    end
+
+    subgraph tasks["다운스트림 태스크"]
+        direction LR
+        t1["감성 분석"]
+        t2["NER"]
+        t3["질의응답"]
+        t4["텍스트 생성"]
+    end
+
+    subgraph arch["세 가지 설계 철학"]
+        direction LR
+        enc["Encoder-only<br/>BERT<br/>(이해 특화)"]
+        dec["Decoder-only<br/>GPT<br/>(생성 특화)"]
+        encdec["Encoder-Decoder<br/>T5, BART<br/>(변환 특화)"]
+    end
+
+    pretrain -->|"가중치 전이"| finetune
+    finetune --> tasks
+    arch -.-> pretrain

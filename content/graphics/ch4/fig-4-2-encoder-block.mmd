@@ -1,0 +1,10 @@
+flowchart TB
+    INPUT["입력 x"] --> MHA["Multi-Head<br/>Self-Attention"]
+    INPUT -->|"Residual"| ADD1["+"]
+    MHA --> ADD1
+    ADD1 --> LN1["Layer Norm"]
+    LN1 --> FFN["Feed-Forward<br/>Network<br/>(d_model → d_ff → d_model)"]
+    LN1 -->|"Residual"| ADD2["+"]
+    FFN --> ADD2
+    ADD2 --> LN2["Layer Norm"]
+    LN2 --> OUTPUT["출력"]

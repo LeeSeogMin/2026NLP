@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph bert["BERT (Encoder-only)"]
+        direction TB
+        b_input["입력: The [MASK] sat on mat"]
+        b_attn["양방향 Self-Attention<br/>← 모든 토큰 참조 →<br/>(좌+우 문맥 모두 활용)"]
+        b_output["[MASK] = cat 예측"]
+        b_use["용도: 분류, NER, QA, 유사도"]
+
+        b_input --> b_attn --> b_output --> b_use
+    end
+
+    subgraph gpt["GPT (Decoder-only)"]
+        direction TB
+        g_input["입력: The cat sat on"]
+        g_attn["단방향 Causal Attention<br/>← 이전 토큰만 참조<br/>(미래 토큰 마스킹)"]
+        g_output["다음 토큰 = mat 예측"]
+        g_use["용도: 텍스트 생성, 대화, 코딩"]
+
+        g_input --> g_attn --> g_output --> g_use
+    end
+
+    subgraph compare["핵심 차이"]
+        direction TB
+        c1["BERT: 빈칸 채우기 → 이해"]
+        c2["GPT: 다음 단어 예측 → 생성"]
+        c3["같은 Transformer 기반<br/>다른 학습 목표"]
+
+        c1 --> c3
+        c2 --> c3
+    end

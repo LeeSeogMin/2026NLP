@@ -16,7 +16,14 @@
       "Bash(/Users/callii/Documents/2026NLP/venv/bin/python3 -m pip install:*)",
       "Bash(/Users/callii/Documents/2026NLP/venv/bin/python3:*)",
       "Bash(test:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(/Users/callii/Documents/2026NLP/venv/bin/pip install:*)",
+      "Bash(/Users/callii/Documents/2026NLP/venv/bin/pip3 install transformers)",
+      "Bash(sysctl:*)",
+      "Bash(vm_stat:*)",
+      "Bash(/tmp/gpt2_test.py << 'EOF'\nimport warnings; warnings.filterwarnings\\('ignore'\\)\nimport os\nos.environ['TOKENIZERS_PARALLELISM'] = 'false'\nimport torch\nfrom transformers import GPT2Tokenizer, GPT2LMHeadModel\n\ntokenizer = GPT2Tokenizer.from_pretrained\\('gpt2'\\)\nmodel = GPT2LMHeadModel.from_pretrained\\('gpt2'\\)\nmodel.eval\\(\\)\ntokenizer.pad_token = tokenizer.eos_token\n\nprompt = 'The future of artificial intelligence is'\ninput_ids = tokenizer.encode\\(prompt, return_tensors='pt'\\)\n\nprint\\('Starting generation...'\\)\nwith torch.no_grad\\(\\):\n    output = model.generate\\(input_ids, max_new_tokens=20, do_sample=False, pad_token_id=tokenizer.eos_token_id\\)\nprint\\('[Greedy]', tokenizer.decode\\(output[0], skip_special_tokens=True\\)\\)\nprint\\('DONE'\\)\nEOF)",
+      "Bash(/tmp/gpt2_manual.py << 'EOF'\nimport warnings; warnings.filterwarnings\\('ignore'\\)\nimport os\nos.environ['TOKENIZERS_PARALLELISM'] = 'false'\nimport torch\nfrom transformers import GPT2Tokenizer, GPT2LMHeadModel\n\ntokenizer = GPT2Tokenizer.from_pretrained\\('gpt2'\\)\nmodel = GPT2LMHeadModel.from_pretrained\\('gpt2'\\)\nmodel.eval\\(\\)\n\nprompt = 'The future of artificial intelligence is'\ninput_ids = tokenizer.encode\\(prompt, return_tensors='pt'\\)\n\n# Manual greedy generation instead of model.generate\\(\\)\ngenerated = input_ids[0].tolist\\(\\)\nfor _ in range\\(20\\):\n    inp = torch.tensor\\([generated]\\)\n    with torch.no_grad\\(\\):\n        outputs = model\\(inp\\)\n    next_token = outputs.logits[0, -1, :].argmax\\(\\).item\\(\\)\n    generated.append\\(next_token\\)\n    if next_token == tokenizer.eos_token_id:\n        break\n\nprint\\('[Greedy]', tokenizer.decode\\(generated, skip_special_tokens=True\\)\\)\nprint\\('DONE'\\)\nEOF)",
+      "Bash(/tmp/bert_gpt_practice.py:*)"
     ]
   }
 }

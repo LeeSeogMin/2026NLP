@@ -74,25 +74,23 @@
 - [x] 최종 원고 (docs/ch2.md — 718줄)
 > **변경사항**: 구 ch4 재활용 + 1교시 신경망 기초 신규 + 3교시제 + BoW 텍스트 분류 실습
 
-#### ch4: Transformer 아키텍처 심층 분석
-- [ ] 집필계획서
-- [ ] 리서치
-- [ ] 초안
-- [ ] 실습 코드
-- [ ] 그래픽
-- [ ] Multi-LLM 리뷰
-- [ ] 최종 원고
-> **참고 자산**: 구 ch6 (Transformer 아키텍처) 심화 확장
+#### ch4: Transformer 아키텍처 심층 분석 — ✅ 완료 (2026-02-11)
+- [x] 집필계획서 (schema/chap4.md)
+- [x] 리서치 (구 ch6 참조 + Transformer 구성 요소 분석)
+- [x] 실습 코드 (practice/chapter4/code/ — 3개 파일, 실행 결과 확인)
+- [x] 그래픽 (content/graphics/ch4/ — Mermaid 4개)
+- [x] Multi-LLM 리뷰 (GPT-4o 평균 8.3 + Grok-4 평균 8.2)
+- [x] 최종 원고 (docs/ch4.md — 633줄)
+> **변경사항**: 구 ch6 참조 + 3교시제 + Decoder 구현 + Tokenization 심화 + BPE 밑바닥 구현
 
-#### ch5: LLM 아키텍처: BERT와 GPT
-- [ ] 집필계획서
-- [ ] 리서치
-- [ ] 초안
-- [ ] 실습 코드
-- [ ] 그래픽
-- [ ] Multi-LLM 리뷰
-- [ ] 최종 원고
-> **참고 자산**: 구 ch9 (BERT) + 구 ch10 (GPT) 합쳐서 압축
+#### ch5: LLM 아키텍처: BERT와 GPT — ✅ 완료 (2026-02-12)
+- [x] 집필계획서 (schema/chap5.md)
+- [x] 리서치 (구 ch9 BERT + 구 ch10 GPT 참조)
+- [x] 실습 코드 (practice/chapter5/code/ — 3개 파일, 실행 결과 확인)
+- [x] 그래픽 (content/graphics/ch5/ — Mermaid 4개)
+- [x] Multi-LLM 리뷰 (GPT-4o 평균 9.2 + Grok-4 평균 8.3)
+- [x] 최종 원고 (docs/ch5.md — 698줄)
+> **변경사항**: 구 ch9 (BERT) + 구 ch10 (GPT) 합쳐서 압축 + 3교시제 + Hugging Face 실전 섹션 신규
 
 #### ch6: LLM API 활용과 프롬프트 엔지니어링
 - [ ] 집필계획서
@@ -188,6 +186,6 @@
 
 ---
 
-**마지막 업데이트**: 2026-02-11
-**현재 Phase**: Phase 2 진행 중 (ch1, ch2 완료)
-**다음 작업**: ch4 재작성 또는 ch8/ch14 소폭수정
+**마지막 업데이트**: 2026-02-12
+**현재 Phase**: Phase 2 진행 중 (ch1, ch2, ch4, ch5 완료)
+**다음 작업**: ch6 재작성 (LLM API 활용과 프롬프트 엔지니어링)

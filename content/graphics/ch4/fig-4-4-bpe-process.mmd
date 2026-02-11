@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph Step1["1단계: 글자 분리"]
+        W1["l o w </w>"]
+        W2["n e w </w>"]
+        W3["n e w e s t </w>"]
+    end
+
+    subgraph Step2["2단계: 빈번한 쌍 병합"]
+        direction TB
+        M1["w + </w> → w</w>"]
+        M2["n + e → ne"]
+        M3["l + o → lo"]
+    end
+
+    subgraph Step3["3단계: 반복 병합"]
+        direction TB
+        M4["ne + w</w> → new</w>"]
+        M5["lo + w</w> → low</w>"]
+    end
+
+    subgraph Step4["4단계: 최종 어휘"]
+        V1["low</w>"]
+        V2["new</w>"]
+        V3["newest</w>"]
+        V4["lo, we, r, st</w>"]
+    end
+
+    Step1 --> Step2 --> Step3 --> Step4

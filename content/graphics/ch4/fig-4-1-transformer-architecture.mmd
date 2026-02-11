@@ -1,0 +1,34 @@
+flowchart TB
+    subgraph Encoder["Encoder (N=6)"]
+        direction TB
+        EI["입력 임베딩<br/>+ Positional Encoding"] --> EB1
+
+        subgraph EB1["Encoder Block ×N"]
+            direction TB
+            SA["Multi-Head<br/>Self-Attention"] --> AN1["Add & Norm"]
+            AN1 --> FFN1["Feed-Forward<br/>Network"]
+            FFN1 --> AN2["Add & Norm"]
+        end
+
+        EB1 --> EO["Encoder 출력"]
+    end
+
+    subgraph Decoder["Decoder (N=6)"]
+        direction TB
+        DI["출력 임베딩<br/>+ Positional Encoding"] --> DB1
+
+        subgraph DB1["Decoder Block ×N"]
+            direction TB
+            MSA["Masked Multi-Head<br/>Self-Attention"] --> AN3["Add & Norm"]
+            AN3 --> CA["Cross-Attention<br/>(Encoder 참조)"]
+            CA --> AN4["Add & Norm"]
+            AN4 --> FFN2["Feed-Forward<br/>Network"]
+            FFN2 --> AN5["Add & Norm"]
+        end
+
+        DB1 --> LIN["Linear"]
+        LIN --> SM["Softmax"]
+        SM --> OUT["출력 확률"]
+    end
+
+    EO -->|"Key, Value"| CA
