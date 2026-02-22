@@ -456,12 +456,17 @@ Causal Mask (1=참조 가능, 0=마스킹):
 
 ### 실습 환경 준비
 
+1장에서 `scripts/setup_env.py`로 구축한 통합 가상환경을 사용한다. 별도 설치는 불필요하다.
+
 ```bash
-cd practice/chapter3
-python3 -m venv venv
+# 가상환경 활성화 (1장에서 이미 생성)
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r code/requirements.txt
+
+# 디바이스 확인
+python -c "import torch; print(f'Device: {torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")}')"
 ```
+
+> **참고**: Attention 연산은 소규모이므로 CPU에서도 충분히 빠르다. GPU가 있으면 더 큰 시퀀스로 실험할 수 있다.
 
 ### Attention 직접 구현
 

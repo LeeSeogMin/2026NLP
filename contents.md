@@ -57,6 +57,27 @@
 - `pytorch-model-pattern`: nn.Module 템플릿, training loop 패턴
 - `huggingface-pipeline`: Trainer API, 모델 로드 패턴
 
+### GPU/CUDA 환경 설정 정책
+
+모든 실습 코드는 **GPU 가속을 기본으로 활용**하되, CUDA가 없는 환경에서도 **CPU로 자동 폴백**한다.
+
+**표준 디바이스 설정 패턴** (모든 실습 코드에 적용):
+```python
+import torch
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+model = model.to(device)
+```
+
+**주차별 GPU 필요도**:
+
+| 구분 | GPU 필수 | GPU 강력 권장 | GPU 있으면 좋음 | CPU 충분 |
+|------|---------|-------------|---------------|---------|
+| 주차 | 9, 10 | 5, 8, 13 | 1, 2, 4, 11 | 3, 6, 12 |
+| 사유 | 모델 파인튜닝 | 대형 모델 추론/임베딩 | 학습 가속 | API/소규모 연산 |
+
+**1주차 자동 환경 설정**: `scripts/setup_env.py` 스크립트를 실행하면 가상환경 생성, 전체 실습 패키지 설치, GPU 사양 감지 및 적합한 CUDA 버전의 PyTorch를 자동으로 설치한다. 이후 주차에서는 별도 환경 설정 없이 바로 실습에 집중할 수 있다.
+
 ---
 
 ## 수업 운영 구조 (3교시제)
@@ -134,11 +155,18 @@
 #### 2교시: 개발 환경과 PyTorch 기초
 
 ##### 1.2 개발 환경 구축
-- Python 가상환경 설정 (Anaconda/venv)
-- PyTorch 설치 및 GPU 환경 확인
+
+> **자동 환경 설정**: `scripts/setup_env.py`를 실행하면 아래 과정이 자동으로 수행된다. 학생은 스크립트 실행 한 번으로 15주차 전체 실습 환경을 완성한다.
+
+- **자동 환경 설정 스크립트** (`scripts/setup_env.py`):
+  - Python 가상환경 자동 생성 (venv)
+  - GPU 사양 자동 감지 (NVIDIA GPU 모델, VRAM, 드라이버 버전, 지원 CUDA 버전)
+  - GPU 사양에 맞는 PyTorch + CUDA 버전 자동 설치 (GPU 없으면 CPU 버전 설치)
+  - 15주차 전체 실습 패키지 일괄 설치 (`requirements.txt`)
+  - 설치 결과 검증 및 GPU 벤치마크 (행렬 연산 CPU vs GPU 속도 비교)
 - VS Code 설치 + GitHub Copilot / Copilot Chat 확장 설치
 - Hugging Face 생태계 소개 (Hub, Transformers, Datasets)
-- Google Colab / Kaggle GPU 환경 설정
+- Google Colab / Kaggle GPU 환경 설정 (GPU가 없는 학생용 대안)
 - Git/GitHub 기본 사용법
 
 ##### 1.3 Python 딥러닝 기초
@@ -156,12 +184,14 @@
 > **Copilot 활용**: Copilot에게 "PyTorch Tensor를 생성하고 GPU로 이동하는 코드를 작성해줘"와 같은 프롬프트로 시작하되, 생성된 코드의 각 줄이 무엇을 하는지 반드시 이해한다.
 
 ##### 1.4 실습
+- **자동 환경 설정 스크립트 실행**: `python scripts/setup_env.py` 한 번으로 전체 환경 구축
+- GPU 사양 확인 및 CUDA 설정 검증 (`torch.cuda.is_available()`, `torch.cuda.get_device_name()`)
+- CPU vs GPU 행렬 연산 속도 비교 벤치마크 체험
 - GitHub Copilot Pro 학생 무료 등록 + VS Code 설정
-- GPU 환경 구축 및 확인
-- PyTorch Tensor 연산 실습
-- 간단한 선형 회귀 모델 구현 (Autograd 활용)
+- PyTorch Tensor 연산 실습 (GPU 이동 포함)
+- 간단한 선형 회귀 모델 구현 (Autograd 활용, GPU에서 학습)
 
-**과제**: 개발 환경 구축 + PyTorch Tensor 조작 과제 제출
+**과제**: 자동 환경 설정 실행 결과 캡처 + PyTorch Tensor 조작 과제 (GPU/CPU 성능 비교 포함)
 
 ---
 
@@ -200,6 +230,7 @@
 ##### 2.2 PyTorch 모델 개발 패턴
 - `nn.Module`을 활용한 모델 정의: 레고 블록을 클래스로 만들기
 - `Dataset`과 `DataLoader`로 데이터 파이프라인 구성
+- **GPU 활용 학습 패턴**: `model.to(device)`, `data.to(device)`로 모델과 데이터를 GPU로 이동
 - 옵티마이저 (SGD, Adam, AdamW): 산을 내려가는 전략의 차이
 - 학습률 스케줄러 (CosineAnnealing, ReduceLROnPlateau): 처음엔 크게, 나중엔 세밀하게
 
@@ -372,10 +403,10 @@
 ##### 4.5 실습
 - Transformer Encoder Block 밑바닥 구현
 - Positional Encoding 구현 및 시각화
-- 간단한 Transformer 기반 텍스트 분류기 구현
+- 간단한 Transformer 기반 텍스트 분류기 구현 (**GPU 학습으로 속도 체감**)
 - Tokenizer 비교 실험 (BPE vs WordPiece vs SentencePiece)
 
-**과제**: Transformer Encoder로 텍스트 분류 모델 구현 + 성능 분석
+**과제**: Transformer Encoder로 텍스트 분류 모델 구현 + 성능 분석 (GPU/CPU 학습 시간 비교 포함)
 
 ---
 
@@ -439,6 +470,7 @@
 ##### 5.4 Hugging Face Transformers 실전
 - Pipeline API로 빠른 추론: 3줄로 감성 분석, NER, 요약 수행
 - AutoModel, AutoTokenizer, AutoConfig: 모델 자동 로드
+- **GPU 가속 추론**: `model.to(device)`와 `pipeline(device=0)`으로 대형 모델 추론 속도 확보
 - 모델 로드, 추론, 임베딩 추출
 - Model Hub 탐색 및 모델 선택 기준
 
@@ -575,7 +607,7 @@
 **직관적 이해**: BERTopic은 5단계 파이프라인으로, 각 단계가 명확한 역할을 한다. ① 문서를 벡터로 변환(의미 파악) → ② 고차원 벡터를 2~3차원으로 압축(시각화 가능하게) → ③ 가까운 문서끼리 묶기(클러스터링) → ④ 각 클러스터의 대표 키워드 추출 → ⑤ 선택적 미세 조정
 
 - 5단계 파이프라인: Embedding → UMAP → HDBSCAN → c-TF-IDF → Fine-tuning
-- Sentence Transformers (all-MiniLM-L6-v2, BGE 등)
+- Sentence Transformers (all-MiniLM-L6-v2, BGE 등) — **GPU 가속으로 수만 건 임베딩 생성**
 - UMAP 차원 축소: 고차원 → 저차원, 가까운 점은 가까이 유지
 - HDBSCAN 밀도 기반 클러스터링: 밀도 높은 영역을 자동 탐지
 - c-TF-IDF: "이 클러스터에서 특히 많이 등장하는 단어"를 대표 키워드로
@@ -651,6 +683,9 @@
 > **라이브 코딩 시연**: 교수가 TrainingArguments를 설정하고 Trainer를 실행하며, Loss Curve를 실시간으로 관찰한다.
 
 ##### 9.3 Hugging Face Trainer API
+
+> **GPU 필수**: 이 주차부터 파인튜닝 실습은 GPU 없이 진행이 불가능하다. 실습실 GPU 또는 Google Colab GPU를 반드시 사용한다.
+
 - Trainer 클래스와 TrainingArguments
 - 핵심 하이퍼파라미터:
   - Learning Rate: 너무 크면 발산, 너무 작으면 수렴 안 함
@@ -760,8 +795,11 @@
 > **Copilot 활용**: LoraConfig 설정과 get_peft_model() 적용을 Copilot이 도와주되, rank/alpha 값의 의미와 trade-off는 학생이 직접 실험하며 체감한다.
 
 ##### 10.6 실습
-- BERT/GPT-2에 LoRA 적용
-- Full Fine-tuning vs LoRA 성능/비용/시간 비교
+
+> **GPU 필수**: QLoRA 7B 모델 튜닝은 **VRAM 16GB 이상** 권장. 실습실 GPU 또는 Google Colab T4(15GB)를 사용한다.
+
+- BERT/GPT-2에 LoRA 적용 (GPU 가속)
+- Full Fine-tuning vs LoRA 성능/비용/시간/GPU 메모리 비교
 - Rank/Alpha 값 변경 실험
 - QLoRA로 대형 모델 (7B) 튜닝 (Google Colab T4에서 가능)
 - Adapter 저장 및 재사용
@@ -949,11 +987,14 @@
 - 비동기 처리와 배치 추론: 여러 요청을 효율적으로 처리
 
 ##### 13.2 모델 최적화
+
+> **GPU 권장**: ONNX/TensorRT 최적화 및 GPU vs CPU 추론 비교는 GPU 환경에서 실습해야 의미 있는 결과를 얻는다.
+
 - 추론 속도 최적화: ONNX Runtime, TensorRT
   - ONNX: 모델을 범용 포맷으로 변환해 최적화된 런타임에서 실행
 - 양자화를 통한 경량화 (INT8, INT4): 정밀도를 낮춰 속도와 메모리 절약
 - 모델 캐싱 전략: 자주 쓰는 결과를 저장
-- GPU vs CPU 추론 트레이드오프: 비용 vs 속도
+- GPU vs CPU 추론 트레이드오프: 비용 vs 속도 (**실측 벤치마크 비교**)
 
 ---
 

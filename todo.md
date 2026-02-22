@@ -92,15 +92,14 @@
 - [x] 최종 원고 (docs/ch5.md — 698줄)
 > **변경사항**: 구 ch9 (BERT) + 구 ch10 (GPT) 합쳐서 압축 + 3교시제 + Hugging Face 실전 섹션 신규
 
-#### ch6: LLM API 활용과 프롬프트 엔지니어링
-- [ ] 집필계획서
-- [ ] 리서치
-- [ ] 초안
-- [ ] 실습 코드
-- [ ] 그래픽
-- [ ] Multi-LLM 리뷰
-- [ ] 최종 원고
-> **참고 자산**: 구 ch13 일부 (프롬프트 엔지니어링) + 신규 내용 대거 추가 (API, Function Calling, Structured Output)
+#### ch6: LLM API 활용과 프롬프트 엔지니어링 — ✅ 완료 (2026-02-23)
+- [x] 집필계획서 (schema/chap6.md)
+- [x] 리서치 (content/research/ch6-research.md — API SDK 패턴, 참고문헌 검증)
+- [x] 실습 코드 (practice/chapter6/code/ — 3개 파일, 실행 결과 확인)
+- [x] 그래픽 (content/graphics/ch6/ — Mermaid 4개)
+- [x] Multi-LLM 리뷰 (Claude Haiku 4.5 평균 8.8/10, GPT-4o/Grok-4 미설정)
+- [x] 최종 원고 (docs/ch6.md — 655줄)
+> **변경사항**: 구 ch13 프롬프트 참고 + API/Function Calling/Structured Output/LLM 평가 신규 + 캐시 폴백
 
 #### ch9: LLM 파인튜닝 (1) — Full Fine-tuning
 - [ ] 집필계획서
@@ -186,6 +185,6 @@
 
 ---
 
-**마지막 업데이트**: 2026-02-12
-**현재 Phase**: Phase 2 진행 중 (ch1, ch2, ch4, ch5 완료)
-**다음 작업**: ch6 재작성 (LLM API 활용과 프롬프트 엔지니어링)
+**마지막 업데이트**: 2026-02-23
+**현재 Phase**: Phase 2 진행 중 (ch1, ch2, ch3, ch4, ch5, ch6 완료)
+**다음 작업**: ch8 소폭수정 (토픽 모델링) 또는 ch9 재작성 (LLM 파인튜닝 1)

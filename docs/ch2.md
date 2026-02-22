@@ -258,6 +258,33 @@ _전체 코드는 practice/chapter2/code/2-1-신경망기초.py 참고_
 
 ## 2.2 PyTorch 모델 개발 패턴
 
+### GPU 활용 학습 패턴
+
+2장부터는 모델 학습에 **GPU 가속**을 활용한다. 1장에서 설정한 환경에서 GPU가 감지되면 자동으로 사용하고, 없으면 CPU로 폴백한다. 모든 실습 코드는 다음 패턴으로 시작한다:
+
+```python
+import torch
+import torch.nn as nn
+
+# 디바이스 자동 설정 (1장에서 학습한 표준 패턴)
+device = torch.device(
+    "cuda" if torch.cuda.is_available()
+    else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    else "cpu"
+)
+print(f"Using device: {device}")
+
+# 모델을 디바이스로 이동
+model = MyModel().to(device)
+
+# 학습 루프에서 데이터도 디바이스로 이동
+for batch_X, batch_y in dataloader:
+    batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+    # ... 학습 코드
+```
+
+> **참고**: MLP 같은 소규모 모델은 CPU에서도 수 초 내에 학습이 완료된다. GPU의 위력은 4-5주차 이후 대형 모델에서 본격적으로 체감된다.
+
 ### nn.Module로 모델 정의하기
 
 PyTorch에서 모든 신경망 모델은 `nn.Module` 클래스를 상속받아 정의한다. 두 가지 메서드를 필수로 구현해야 한다:
@@ -423,6 +450,7 @@ def validate(model, dataloader, criterion, device):
     model.eval()   # 평가 모드 (Dropout 비활성화)
     with torch.no_grad():
         for batch_X, batch_y in dataloader:
+            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
             outputs = model(batch_X)
             loss = criterion(outputs, batch_y)
 ```
@@ -610,7 +638,10 @@ class TextClassifier(nn.Module):
 ```
 총 파라미터 수: 7,458
 학습: 32 샘플, 검증: 8 샘플
+Using device: cuda    # GPU 환경 (없으면 cpu)
 ```
+
+모델과 데이터를 GPU로 이동시킨 뒤 학습한다. GPU가 없으면 CPU에서 동일하게 동작하며, 이 규모의 모델은 CPU에서도 수 초면 완료된다.
 
 ### 학습 및 평가 결과
 

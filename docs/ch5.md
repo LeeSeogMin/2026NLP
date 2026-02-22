@@ -493,7 +493,10 @@ Hugging Face의 `pipeline` API는 모델 로드, 토크나이즈, 추론, 후처
 
 ```python
 from transformers import pipeline
-classifier = pipeline("sentiment-analysis")
+
+# GPU가 있으면 자동으로 활용 (device=0: 첫 번째 GPU)
+classifier = pipeline("sentiment-analysis",
+                       device=0 if torch.cuda.is_available() else -1)
 result = classifier("I love this movie!")
 ```
 
@@ -567,6 +570,27 @@ Hugging Face Model Hub(https://huggingface.co/models)에는 수십만 개의 모
 > **Copilot 활용**: 이번 실습에서 Copilot을 적극 활용한다. "BERT로 감성 분석 코드를 작성해줘"라고 요청하면 기본 틀이 생성되므로, 학생은 디코딩 전략 파라미터를 바꿔가며 결과 차이를 직접 관찰하는 데 집중한다.
 
 ## 5.5 실습: BERT/GPT 종합 활용
+
+### 실습 환경 및 GPU 설정
+
+BERT(110M 파라미터)와 GPT-2(117M~)는 대형 모델이므로 **GPU 사용을 강력 권장**한다. CPU에서도 동작하지만 추론 속도가 느릴 수 있다.
+
+```python
+import torch
+
+device = torch.device(
+    "cuda" if torch.cuda.is_available()
+    else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    else "cpu"
+)
+print(f"Using device: {device}")
+
+# Hugging Face Pipeline에서 GPU 사용
+from transformers import pipeline
+classifier = pipeline("sentiment-analysis", device=0 if torch.cuda.is_available() else -1)
+```
+
+> **GPU 강력 권장**: BERT/GPT 모델 추론은 CPU 대비 GPU에서 5-10배 빠르다. 특히 GPT-2 텍스트 생성은 GPU 없이 상당한 대기 시간이 발생할 수 있다.
 
 _전체 코드는 practice/chapter5/code/5-5-bert-gpt-practice.py 참고_
 

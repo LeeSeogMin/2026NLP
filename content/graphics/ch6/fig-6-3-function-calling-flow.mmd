@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant U as 사용자
+    participant A as 앱 (Python)
+    participant L as LLM (API)
+    participant T as 외부 도구<br/>(날씨 API 등)
+
+    U->>A: "서울 날씨 알려줘"
+    Note over A: 1단계: 요청 전송
+    A->>L: messages + tools 정의
+    Note over L: 2단계: 도구 선택
+    L-->>A: tool_calls: get_weather(서울)
+    Note over A: 3단계: 도구 실행
+    A->>T: get_weather("서울")
+    T-->>A: {"temp": "3°C", "condition": "맑음"}
+    Note over A: 4단계: 결과 전달
+    A->>L: tool_result + 원래 대화
+    L-->>A: "서울은 현재 3°C이며 맑습니다"
+    A->>U: 최종 응답 표시
