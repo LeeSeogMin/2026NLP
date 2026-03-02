@@ -14,13 +14,13 @@
 
 ### 수업 타임라인
 
-| 시간 | 내용 | Copilot 사용 |
-|------|------|-------------|
-| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항) | 사용 안 함 |
-| 00:05~00:55 | 이론 강의 (Full FT의 한계 → PEFT → LoRA → QLoRA) | 사용 안 함 |
-| 00:55~01:25 | 라이브 코딩 시연 (QLoRA로 70B 모델 파인튜닝) | 교수 시연 시 선택 사용 |
-| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개 | |
-| 01:28~01:30 | Exit ticket (1문항) | |
+| 시간        | 내용                                             | Copilot 사용                  |
+| ----------- | ------------------------------------------------ | ----------------------------- |
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)              | 사용 안 함                    |
+| 00:05~00:55 | 이론 강의 (Full FT의 한계 → PEFT → LoRA → QLoRA) | 사용 안 함                    |
+| 00:55~01:25 | 라이브 코딩 시연 (QLoRA로 70B 모델 파인튜닝)     | 직접 실습 또는 시연 영상 참고 |
+| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개                 |                               |
+| 01:28~01:30 | Exit ticket (1문항)                              |                               |
 
 ---
 
@@ -75,12 +75,12 @@ PEFT 계열에는 여러 방법이 있다:
 
 **표 10.1** PEFT 방법 비교
 
-| 방법 | 추가 파라미터 | 원리 | 메모리 절약 |
-|------|-------------|------|-----------|
-| Adapter | 0.4~2% | 각 층 후에 병렬 모듈 추가 | 약 90% |
-| Prefix Tuning | 0.1% | 입력 토큰 앞에 학습 가능한 벡터 추가 | 약 95% |
-| Prompt Tuning | 0.01% | Soft prompt만 학습 | 약 99% |
-| LoRA | 0.1% | 가중치 변화를 저랭크 분해로 근사 | 약 99% |
+| 방법          | 추가 파라미터 | 원리                                 | 메모리 절약 |
+| ------------- | ------------- | ------------------------------------ | ----------- |
+| Adapter       | 0.4~2%        | 각 층 후에 병렬 모듈 추가            | 약 90%      |
+| Prefix Tuning | 0.1%          | 입력 토큰 앞에 학습 가능한 벡터 추가 | 약 95%      |
+| Prompt Tuning | 0.01%         | Soft prompt만 학습                   | 약 99%      |
+| LoRA          | 0.1%          | 가중치 변화를 저랭크 분해로 근사     | 약 99%      |
 
 이들의 **공통점**은 "원본 모델은 건드리지 않고, **추가 파라미터만 학습**한다"는 것이다. **차이점**은 어디에 추가하고, 어떻게 추가하느냐이다.
 
@@ -107,6 +107,7 @@ Adapter(x) = W_down(ReLU(W_up(x))) + x
 ```
 
 여기서:
+
 - **W_up**: d → r (다운샘플링, r은 보통 d/4 정도)
 - **ReLU**: 비선형성 추가
 - **W_down**: r → d (업샘플링)
@@ -115,6 +116,7 @@ Adapter(x) = W_down(ReLU(W_up(x))) + x
 **직관적 이해**: Adapter는 원본 도로(MHA 출력)를 그대로 두고, 옆에 작은 샛길(adapter)을 붙이는 것과 같다. 차량(정보)은 메인 도로를 갈 수도, 샛길을 갈 수도 있다.
 
 예를 들어, d=768, r=192인 경우:
+
 - 원본 가중치: 768 × 768 = 589,824개
 - Adapter 가중치: (768 × 192) + (192 × 768) = 147,456 + 147,456 = 294,912개
 - 추가 비율: 294,912 / 589,824 = 50% (각 층마다)
@@ -141,6 +143,7 @@ flowchart LR
 Attention(Q, Concat(prefix, K), Concat(prefix, V))
 
 프리픽스 길이가 k이면 추가 파라미터는:
+
 - 프리픽스 k개 × d 차원 × L층 = k·d·L
 
 **직관적 이해**: Prefix Tuning은 "수학 시험을 볼 때, 허용된 참고자료(프리픽스)를 먼저 준 뒤, 시험자의 배경지식(원본 모델)은 그대로 두고 참고자료를 활용해서 답하도록 하는 것"과 같다.
@@ -169,12 +172,12 @@ Input = Concat(soft_prompt, original_input_embeddings)
 
 **표 10.2** Adapter vs Prefix Tuning vs Prompt Tuning 비교
 
-| 특성 | Adapter | Prefix | Prompt |
-|------|---------|--------|--------|
-| 추가 파라미터 | 0.4~2% | 0.1~0.5% | 0.01~0.1% |
-| 추론 레이턴시 | 약간 증가 | 무증가 | 무증가 |
-| 새 태스크 적응성 | 중간 | 좋음 | 보통 |
-| 구현 복잡도 | 중간 | 높음 | 낮음 |
+| 특성             | Adapter   | Prefix   | Prompt    |
+| ---------------- | --------- | -------- | --------- |
+| 추가 파라미터    | 0.4~2%    | 0.1~0.5% | 0.01~0.1% |
+| 추론 레이턴시    | 약간 증가 | 무증가   | 무증가    |
+| 새 태스크 적응성 | 중간      | 좋음     | 보통      |
+| 구현 복잡도      | 중간      | 높음     | 낮음      |
 
 ---
 
@@ -189,6 +192,7 @@ Input = Concat(soft_prompt, original_input_embeddings)
 ΔW = AB
 
 여기서:
+
 - W: 원본 가중치 (m × n)
 - A: m × r 행렬 (r << min(m, n))
 - B: r × n 행렬
@@ -235,10 +239,11 @@ h' = Wx + (AB)x = Wx + A(Bx)
 
 하지만 LoRA에서는:
 
-∂L/∂A = ∂L/∂h · x^T · B^T  (크기: m × r)
-∂L/∂B = A^T · ∂L/∂h · x^T  (크기: r × n)
+∂L/∂A = ∂L/∂h · x^T · B^T (크기: m × r)
+∂L/∂B = A^T · ∂L/∂h · x^T (크기: r × n)
 
 따라서 업데이트해야 할 파라미터는:
+
 - A: m·r개
 - B: r·n개
 - 합계: r(m+n)개
@@ -277,23 +282,25 @@ LoRA의 성능은 초기값 설정이 매우 중요하다:
 LoRA rank r은 중요한 하이퍼파라미터이다:
 
 **r이 클수록**:
+
 - 표현력 증가 → 성능 향상
 - 파라미터 증가 → 메모리 사용 증가
 - 학습 시간 증가
 
 **r이 작을수록**:
+
 - 메모리 절약
 - 학습 빠름
 - 표현력 제한
 
 실증적 가이드라인:
 
-| 태스크 | 권장 r | 이유 |
-|------|-------|------|
-| 단순 분류 (감정분석) | 8, 16 | 작은 변화만 필요 |
-| 일반 NLU (요약, QA) | 16, 32 | 중간 수준 적응 |
-| 창의적 생성 (스토리, 시) | 32, 64 | 큰 변화 필요 |
-| 새로운 언어/도메인 | 64, 128 | 광범위한 적응 |
+| 태스크                   | 권장 r  | 이유             |
+| ------------------------ | ------- | ---------------- |
+| 단순 분류 (감정분석)     | 8, 16   | 작은 변화만 필요 |
+| 일반 NLU (요약, QA)      | 16, 32  | 중간 수준 적응   |
+| 창의적 생성 (스토리, 시) | 32, 64  | 큰 변화 필요     |
+| 새로운 언어/도메인       | 64, 128 | 광범위한 적응    |
 
 실제 실험 결과:
 
@@ -347,12 +354,12 @@ lora_config = LoraConfig(
 
 **표 10.3** 정밀도별 메모리 사용 (70B 모델 기준)
 
-| 정밀도 | 메모리 | 상대값 |
-|--------|--------|-------|
-| float32 | 280GB | 1× |
-| float16 | 140GB | 0.5× |
-| int8 | 70GB | 0.25× |
-| int4 | 35GB | 0.125× |
+| 정밀도  | 메모리 | 상대값 |
+| ------- | ------ | ------ |
+| float32 | 280GB  | 1×     |
+| float16 | 140GB  | 0.5×   |
+| int8    | 70GB   | 0.25×  |
+| int4    | 35GB   | 0.125× |
 
 **그래서 무엇이 달라지는가?** float32로는 불가능하던 70B 모델이, int4 양자화로는 35GB만으로도 메모리에 올릴 수 있다. 하지만 4비트로 16개 값만 표현하면 정보 손실이 크지 않을까?
 
@@ -406,17 +413,20 @@ NF4 값: [-1.0, -0.6961, -0.5251, -0.3949, -0.2694, -0.1549, -0.0434, 0.0651,
 **Double Quantization**은 스케일 값까지 양자화한다:
 
 1단계: 가중치를 4-bit NF4로 양자화
+
 ```
 x_int4 = quantize(x) ∈ [0, 15]
 스케일값: s = (max_val - min_val) / 15
 ```
 
 2단계: 스케일값을 다시 8-bit로 양자화
+
 ```
 s_int8 = quantize(s)  ∈ [0, 255]
 ```
 
 **메모리 절감**:
+
 - 1단계만: 가중치 4-bit + 스케일 32-bit(float) = 가중치당 평균 1바이트 근처
 - 2단계: 가중치 4-bit + 스케일 8-bit = 가중치당 평균 0.5바이트 이상 절감
 
@@ -443,6 +453,7 @@ model = AutoModelForCausalLM.from_pretrained(
 ```
 
 이 설정은:
+
 - **load_in_4bit=True**: 4-bit 양자화 로딩
 - **bnb_4bit_compute_dtype**: 연산 시 사용할 정밀도 (bfloat16)
 - **bnb_4bit_use_double_quant=True**: Double Quantization 활성화
@@ -475,6 +486,7 @@ LoRA 어댑터 (bfloat16):  1GB  (r=16인 경우)
 ```
 
 비교:
+
 - Full Fine-tuning: 1,120GB 이상
 - QLoRA: 18GB
 - **메모리 절감: 60배 이상**
@@ -528,6 +540,7 @@ Query와 Value에만 적용해도 충분한 성능을 얻을 수 있다.
 **lora_alpha**: 출력 스케일 인자
 
 최종 입력:
+
 ```
 x' = x + (lora_alpha / r) × LoRA(x)
 ```
@@ -580,7 +593,7 @@ training_args = TrainingArguments(
 
 ### 라이브 코딩 시연
 
-> **라이브 코딩 시연**: 교수가 Llama 70B 모델을 8GB GPU에서 QLoRA로 파인튜닝하는 과정을 보여준다. bitsandbytes, PEFT, Transformers 라이브러리를 사용하여 실시간으로 메모리 사용량을 확인한다.
+> **학습 가이드**: Llama 70B 모델을 8GB GPU에서 QLoRA로 파인튜닝하는 과정을 직접 실습하거나 시연 영상을 참고하여 따라가 보자. bitsandbytes, PEFT, Transformers 라이브러리를 사용하여 실시간으로 메모리 사용량을 확인해 보자.
 
 **환경 설정**
 
@@ -651,6 +664,7 @@ print(f"  - 예약된 메모리: {reserved_memory:.2f} GB")
 ```
 
 **출력 예시**:
+
 ```
 모델 로딩: meta-llama/Llama-2-70b-hf
 모델 로딩 완료
@@ -850,21 +864,25 @@ loaded_model = AutoPeftModelForCausalLM.from_pretrained(
 **B회차 (90분) — 실습 + 토론**: QLoRA로 대형 언어모델 파인튜닝
 
 **과제 목표**:
+
 - Llama 2 7B 또는 13B 모델을 QLoRA로 파인튜닝한다
 - Full Fine-tuning과 LoRA, QLoRA의 메모리/성능을 비교한다
 - 파인튜닝된 모델의 추론을 테스트한다
 
 **과제 구성** (3단계, 30~40분 완결):
+
 - **체크포인트 1 (10분)**: 4-bit 모델 로딩 및 메모리 확인
 - **체크포인트 2 (15분)**: LoRA 설정 및 모델 파인튜닝
 - **체크포인트 3 (10분)**: 파인튜닝 모델 추론 및 성능 평가
 
 **제출 형식**:
+
 - 완성된 코드 파일 (`practice/chapter10/code/10-1-qlora-finetuning.py`)
 - 학습 로그 및 메모리 비교 그래프 (png)
 - 실험 결과 리포트 (메모리 사용, 학습 시간, 성능 개선도)
 
 **Copilot 활용 가이드**:
+
 - 기본: "bitsandbytes로 Llama 7B를 4-bit로 로딩해줘"
 - 심화: "LoRA로 파인튜닝할 때 target_modules를 다르게 설정하고 성능을 비교해줘"
 - 검증: "Full Fine-tuning vs LoRA vs QLoRA의 메모리 사용을 계산해줄래?"
@@ -887,6 +905,7 @@ LoRA에서 B를 0으로 초기화하는 이유를 설명하시오.
 **설명**: LoRA에서 A는 가우시안 분포로 초기화되지만, B는 반드시 0으로 초기화한다. 이렇게 하면 ΔW = A × 0 = 0이 되어, 파인튜닝 초기의 순전파가 원본 모델의 순전파와 정확히 같다.
 
 이는 안정적인 학습을 보장한다. 왜냐하면:
+
 1. 초기 손실이 원본 모델의 손실과 같으므로, 매우 높지 않다
 2. 초기 그래디언트가 극단적이지 않다
 3. 학습이 차근차근 ΔW를 증가시키면서 진행된다
@@ -914,9 +933,9 @@ LoRA에서 B를 0으로 초기화하는 이유를 설명하시오.
 
 ## 참고문헌
 
-1. Hu, J. et al. (2021). LoRA: Low-Rank Adaptation of Large Language Models. *arXiv*. https://arxiv.org/abs/2106.09685
-2. Dettmers, T. et al. (2023). QLoRA: Efficient Finetuning of Quantized LLMs. *arXiv*. https://arxiv.org/abs/2305.14314
-3. Dettmers, T. et al. (2022). 8-Bit Optimizers via Block-wise Quantization. *ICLR*. https://arxiv.org/abs/2110.02861
-4. Houlsby, N. et al. (2019). Parameter-Efficient Transfer Learning for NLP. *ICML*. https://arxiv.org/abs/1902.00751
-5. Li, X. L. & Liang, P. (2021). Prefix-Tuning: Optimizing Continuous Prompts for Generation. *ACL*. https://arxiv.org/abs/2101.00190
-6. Lester, B. et al. (2021). The Power of Scale for Parameter-Efficient Prompt Tuning. *EMNLP*. https://arxiv.org/abs/2104.08691
+1. Hu, J. et al. (2021). LoRA: Low-Rank Adaptation of Large Language Models. _arXiv_. https://arxiv.org/abs/2106.09685
+2. Dettmers, T. et al. (2023). QLoRA: Efficient Finetuning of Quantized LLMs. _arXiv_. https://arxiv.org/abs/2305.14314
+3. Dettmers, T. et al. (2022). 8-Bit Optimizers via Block-wise Quantization. _ICLR_. https://arxiv.org/abs/2110.02861
+4. Houlsby, N. et al. (2019). Parameter-Efficient Transfer Learning for NLP. _ICML_. https://arxiv.org/abs/1902.00751
+5. Li, X. L. & Liang, P. (2021). Prefix-Tuning: Optimizing Continuous Prompts for Generation. _ACL_. https://arxiv.org/abs/2101.00190
+6. Lester, B. et al. (2021). The Power of Scale for Parameter-Efficient Prompt Tuning. _EMNLP_. https://arxiv.org/abs/2104.08691

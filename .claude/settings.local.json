@@ -31,7 +31,29 @@
       "WebFetch(domain:github.com)",
       "Bash(tail:*)",
       "Bash(/c/Users/user/AppData/Local/Programs/Python/Python312/python.exe:*)",
-      "Bash(echo No API keys found:*)"
+      "Bash(echo No API keys found:*)",
+      "Bash(pandoc --version)",
+      "Bash(xelatex --version)",
+      "Bash(cmd //c \"where pandoc\")",
+      "Bash(cmd //c \"where xelatex\")",
+      "Bash(cmd //c \"where wkhtmltopdf\")",
+      "Bash(pip --version)",
+      "Bash(cmd //c \"where choco\")",
+      "Bash(cmd //c \"where winget\")",
+      "Bash(export PATH=\"$LOCALAPPDATA/Pandoc:$PATH\")",
+      "Bash(cmd //c \"python --version\")",
+      "Bash(cmd //c \"python3 --version\")",
+      "Bash(cmd //c \"py --version\")",
+      "Bash(cmd //c \"py -m pip list\")",
+      "Bash(cmd //c \"where typst\")",
+      "Bash(cmd //c \"py -c \"\"import pypandoc; print\\(pypandoc.get_pandoc_version\\(\\)\\)\"\"\")",
+      "Bash(cmd //c \"cd /d c:\\\\Dev\\\\2026NLP && py _convert_pdf.py\")",
+      "Bash(cmd //c \"py -m pip install xhtml2pdf markdown\")",
+      "Bash(cmd //c \"winget install typst.typst --accept-package-agreements --accept-source-agreements\")",
+      "Bash(cmd //c \"choco install typst -y\")",
+      "Bash(pandoc \"c:/Dev/2026NLP/syllabus.md\" -o \"c:/Dev/2026NLP/syllabus.pdf\" --pdf-engine=typst -V mainfont=\"Malgun Gothic\" -V monofont=\"Consolas\" -V fontsize=11pt -V geometry:margin=2.5cm -s)",
+      "Bash(pandoc \"c:/Dev/2026NLP/github.md\" -o \"c:/Dev/2026NLP/github.pdf\" --pdf-engine=typst -V mainfont=\"Malgun Gothic\" -V monofont=\"Consolas\" -V fontsize=11pt -V geometry:margin=2.5cm -s)",
+      "Bash(pandoc \"c:/Dev/2026NLP/github.md\" -o \"c:/Dev/2026NLP/github.pdf\" --pdf-engine=typst -V mainfont=\"Malgun Gothic\" -V monofont=\"Consolas\" -V fontsize=11pt -V geometry:margin=2.5cm -s -f markdown-citations)"
     ]
   }
 }

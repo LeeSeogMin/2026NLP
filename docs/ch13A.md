@@ -15,13 +15,13 @@
 
 ### 수업 타임라인
 
-| 시간 | 내용 | Copilot 사용 |
-|------|------|-------------|
-| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항) | 사용 안 함 |
-| 00:05~00:55 | 이론 강의 (배포 개념 → FastAPI → 최적화 → Docker) | 사용 안 함 |
-| 00:55~01:25 | 라이브 코딩 시연 (BERT → FastAPI 래핑 → 배치 처리 → 동시성) | 교수 시연 시 선택 사용 |
-| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개 | |
-| 01:28~01:30 | Exit ticket (1문항) | |
+| 시간        | 내용                                                        | Copilot 사용                  |
+| ----------- | ----------------------------------------------------------- | ----------------------------- |
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)                         | 사용 안 함                    |
+| 00:05~00:55 | 이론 강의 (배포 개념 → FastAPI → 최적화 → Docker)           | 사용 안 함                    |
+| 00:55~01:25 | 라이브 코딩 시연 (BERT → FastAPI 래핑 → 배치 처리 → 동시성) | 직접 실습 또는 시연 영상 참고 |
+| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개                            |                               |
+| 01:28~01:30 | Exit ticket (1문항)                                         |                               |
 
 ---
 
@@ -323,12 +323,12 @@ async def predict(request: PredictRequest):
 
 **표 13.1** 최적화 기법 비교
 
-| 기법 | 시간 절감 | 적용 난도 | 병렬성 |
-|------|----------|----------|--------|
-| 캐싱 | 중간 (반복 요청) | 낮음 | 높음 (읽기 공유) |
-| 배치 처리 | 높음 (처리량 증가) | 중간 | 높음 (모아서 처리) |
-| ONNX Runtime | 중간~높음 (인퍼런스 속도) | 높음 | 중간 (모델 변환 필요) |
-| 양자화(Quantization) | 높음 (메모리·속도) | 높음 | 중간 (정확도 손실 가능) |
+| 기법                 | 시간 절감                 | 적용 난도 | 병렬성                  |
+| -------------------- | ------------------------- | --------- | ----------------------- |
+| 캐싱                 | 중간 (반복 요청)          | 낮음      | 높음 (읽기 공유)        |
+| 배치 처리            | 높음 (처리량 증가)        | 중간      | 높음 (모아서 처리)      |
+| ONNX Runtime         | 중간~높음 (인퍼런스 속도) | 높음      | 중간 (모델 변환 필요)   |
+| 양자화(Quantization) | 높음 (메모리·속도)        | 높음      | 중간 (정확도 손실 가능) |
 
 > **쉽게 말해서**: 최적화는 "자주 하는 일은 빠르게, 많은 일은 한 번에"를 의미한다.
 
@@ -430,13 +430,13 @@ Dockerfile 내용:
 
 **표 13.2** 이미지 vs 컨테이너
 
-| 항목 | 이미지 | 컨테이너 |
-|------|--------|---------|
-| 개념 | 정적 설계도 | 실행 중인 프로세스 |
-| 저장 | 디스크에 저장 | 메모리에서 실행 |
-| 상태 | 변하지 않음 | 계속 변함 |
-| 비유 | 요리 레시피 | 실제로 요리하는 과정 |
-| 명령 | docker build | docker run |
+| 항목 | 이미지        | 컨테이너             |
+| ---- | ------------- | -------------------- |
+| 개념 | 정적 설계도   | 실행 중인 프로세스   |
+| 저장 | 디스크에 저장 | 메모리에서 실행      |
+| 상태 | 변하지 않음   | 계속 변함            |
+| 비유 | 요리 레시피   | 실제로 요리하는 과정 |
+| 명령 | docker build  | docker run           |
 
 ##### Docker Compose: 여러 서비스 조합
 
@@ -451,7 +451,7 @@ Dockerfile 내용:
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   model-server:
@@ -488,7 +488,7 @@ docker-compose up
 
 ### 라이브 코딩 시연
 
-> **라이브 코딩 시연**: 교수가 BERT 감정 분류 모델을 FastAPI 서버로 감싸고, 배치 처리와 동시성 제어를 구현하여 실제 부하를 견딜 수 있는 서버를 만든다.
+> **학습 가이드**: BERT 감정 분류 모델을 FastAPI 서버로 감싸고, 배치 처리와 동시성 제어를 구현하여 실제 부하를 견딜 수 있는 서버를 직접 실습하거나 시연 영상을 참고하여 따라가 보자.
 
 #### [단계 1] BERT 모델 로드와 기본 FastAPI 엔드포인트
 
@@ -563,6 +563,7 @@ uvicorn main:app --reload
 ```
 
 JSON 요청:
+
 ```json
 {
   "text": "이 영화는 정말 재미있었다!"
@@ -570,6 +571,7 @@ JSON 요청:
 ```
 
 응답:
+
 ```json
 {
   "text": "이 영화는 정말 재미있었다!",
@@ -865,7 +867,7 @@ curl http://localhost:8000/health
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   model-server:
@@ -957,23 +959,27 @@ docker-compose down
 **B회차 (90분) — 실습 + 토론**: FastAPI로 BERT 모델 배포 + Docker 컨테이너화
 
 **과제 목표**:
+
 - FastAPI로 감정 분류 모델을 웹 서비스화한다
 - 배치 처리와 캐싱으로 성능을 최적화한다
 - Dockerfile을 작성하여 Docker 이미지로 배포한다
 - Rate Limiting과 헬스 체크로 신뢰성을 확보한다
 
 **과제 구성** (3단계, 30~40분 완결):
+
 - **체크포인트 1 (12분)**: FastAPI 엔드포인트 구현 (GET /health, POST /predict)
 - **체크포인트 2 (15분)**: 배치 처리와 캐싱 추가, 성능 테스트
 - **체크포인트 3 (10분)**: Dockerfile 작성 + 로컬 도커 빌드 및 실행 테스트
 
 **제출 형식**:
+
 - 완성된 코드 파일 (`practice/chapter13/code/13-1-fastapi-deployment.py`)
 - Dockerfile (`practice/chapter13/code/Dockerfile`)
 - requirements.txt (`practice/chapter13/code/requirements.txt`)
 - 성능 리포트 (응답 시간, 처리량, 캐시 히트율 포함, 1~2문단)
 
 **Copilot 활용 가이드**:
+
 - 기본: "FastAPI로 BERT 감정 분류 모델을 감싸는 코드를 작성해줘"
 - 심화: "배치 처리와 Rate Limiting을 추가해줄 수 있어?"
 - 검증: "이 Dockerfile이 올바른지 확인해줄래? 모델 로드 시간을 줄이는 방법도 조언해줘"
@@ -999,6 +1005,7 @@ Case B: 20개 요청 빠르게 들어옴 → 어떻게?
 정답: **① 과 ③**
 
 **설명**:
+
 - Case A: 타임아웃이 목표인데, 타임아웃까지 도달하지 않았으므로 더 많은 요청이 올 때까지 대기한다. 500ms에 도달하거나 배치 크기 16에 도달하면 처리한다.
 - Case B: 배치 크기가 16으로 제한되어 있으므로, 16개를 먼저 처리하고 나머지 4개는 다음 배치 주기에 포함된다. ④는 배치 크기 제한을 무시하므로 오답이다.
 
@@ -1030,6 +1037,6 @@ Case B: 20개 요청 빠르게 들어옴 → 어떻게?
 2. Docker Inc. (2023). Docker Official Documentation. https://docs.docker.com/
 3. Newman, S. (2015). Building Microservices: Designing Fine-Grained Systems. O'Reilly. ISBN 978-1491950357
 4. Huyen, C. (2022). Machine Learning Systems Design. https://huyenchip.com/machine-learning-systems-design.pdf
-5. Sculley, D. et al. (2015). Hidden Technical Debt in Machine Learning Systems. *NIPS*. https://papers.nips.cc/paper/2015/file/86df7dcfd896fcaf2674f757a2463eba-Paper.pdf
+5. Sculley, D. et al. (2015). Hidden Technical Debt in Machine Learning Systems. _NIPS_. https://papers.nips.cc/paper/2015/file/86df7dcfd896fcaf2674f757a2463eba-Paper.pdf
 6. Kubernetes Community. (2023). Kubernetes Official Documentation. https://kubernetes.io/docs/
 7. Janetakis, N. (2019). A Deep Dive into Docker Layers. https://nickjanetakis.com/blog/docker-layers-explained

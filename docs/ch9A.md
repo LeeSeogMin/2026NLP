@@ -15,13 +15,13 @@
 
 ### 수업 타임라인
 
-| 시간 | 내용 | Copilot 사용 |
-|------|------|-------------|
-| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항) | 사용 안 함 |
-| 00:05~00:55 | 이론 강의 (직관적 비유 → 개념 → 원리) | 사용 안 함 |
-| 00:55~01:25 | 라이브 코딩 시연 (작은 데이터셋으로 BERT 파인튜닝) | 교수 시연 시 선택 사용 |
-| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개 | |
-| 01:28~01:30 | Exit ticket (1문항) | |
+| 시간        | 내용                                               | Copilot 사용                  |
+| ----------- | -------------------------------------------------- | ----------------------------- |
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)                | 사용 안 함                    |
+| 00:05~00:55 | 이론 강의 (직관적 비유 → 개념 → 원리)              | 사용 안 함                    |
+| 00:55~01:25 | 라이브 코딩 시연 (작은 데이터셋으로 BERT 파인튜닝) | 직접 실습 또는 시연 영상 참고 |
+| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개                   |                               |
+| 01:28~01:30 | Exit ticket (1문항)                                |                               |
 
 ---
 
@@ -417,13 +417,13 @@ trainer.save_model("./my_finetuned_model")
 
 **표 9.1** 주요 평가 지표
 
-| 지표 | 계산식 | 의미 | 사용처 |
-|------|--------|------|--------|
-| Accuracy | (TP+TN)/(TP+TN+FP+FN) | 전체 중 맞춘 비율 | 균형잡힌 데이터 |
-| Precision | TP/(TP+FP) | "양성"으로 예측한 것 중 실제 양성 비율 | 거짓 양성 최소화 필요시 |
-| Recall | TP/(TP+FN) | 실제 양성 중 찾아낸 비율 | 거짓 음성 최소화 필요시 |
-| F1-Score | 2·(Precision·Recall)/(Precision+Recall) | Precision과 Recall의 조화평균 | 불균형 데이터 |
-| ROC-AUC | - | 다양한 임계값에서의 성능 곡선 아래 면적 | 클래스 확률의 판별력 |
+| 지표      | 계산식                                  | 의미                                    | 사용처                  |
+| --------- | --------------------------------------- | --------------------------------------- | ----------------------- |
+| Accuracy  | (TP+TN)/(TP+TN+FP+FN)                   | 전체 중 맞춘 비율                       | 균형잡힌 데이터         |
+| Precision | TP/(TP+FP)                              | "양성"으로 예측한 것 중 실제 양성 비율  | 거짓 양성 최소화 필요시 |
+| Recall    | TP/(TP+FN)                              | 실제 양성 중 찾아낸 비율                | 거짓 음성 최소화 필요시 |
+| F1-Score  | 2·(Precision·Recall)/(Precision+Recall) | Precision과 Recall의 조화평균           | 불균형 데이터           |
+| ROC-AUC   | -                                       | 다양한 임계값에서의 성능 곡선 아래 면적 | 클래스 확률의 판별력    |
 
 예를 들어, 의료 진단 모델에서:
 
@@ -605,7 +605,7 @@ x축 위: 과불안 (모델의 확률 < 실제 정확도)
 
 ### 라이브 코딩 시연
 
-> **라이브 코딩 시연**: 교수가 작은 감성 분류 데이터셋으로 BERT를 파인튜닝하고, 학습 곡선(Train Loss vs Val Loss)과 Confusion Matrix를 실시간으로 보여준다. 또한 과적합 신호를 포착하고 Early Stopping으로 최적 모델을 선택하는 과정을 보여준다.
+> **학습 가이드**: 작은 감성 분류 데이터셋으로 BERT를 파인튜닝하고, 학습 곡선(Train Loss vs Val Loss)과 Confusion Matrix를 직접 실습하거나 시연 영상을 참고하여 따라가 보자. 또한 과적합 신호를 포착하고 Early Stopping으로 최적 모델을 선택하는 과정을 경험해 보자.
 
 이 시연에서는 다음을 단계별로 보여준다:
 
@@ -642,6 +642,7 @@ print(f"Train: {len(train_dataset)}, Val: {len(val_dataset)}, Test: {len(test_da
 ```
 
 출력:
+
 ```
 Train: 800, Val: 100, Test: 100
 ```
@@ -667,6 +668,7 @@ print(f"Trainable Parameters: {trainable_params:,}")
 ```
 
 출력:
+
 ```
 Total Parameters: 167,355,651
 Trainable Parameters: 167,355,651  ← Full Fine-tuning이므로 모두 학습 가능
@@ -698,6 +700,7 @@ print(processed_train[0])
 ```
 
 출력:
+
 ```
 Processed Sample:
 {
@@ -740,6 +743,7 @@ print(f"  Total Training Steps: {len(processed_train) // training_args.per_devic
 ```
 
 출력:
+
 ```
 Training Configuration:
   Learning Rate: 2e-05
@@ -801,6 +805,7 @@ print("Best model checkpoint:", trainer.best_model_checkpoint)
 ```
 
 출력 (로그):
+
 ```
 Epoch 1/5
 Step 50: Train Loss = 0.756, Val Loss = 0.621, Val Accuracy = 0.82
@@ -882,6 +887,7 @@ cm = print_confusion_matrix(trainer, processed_test)
 ```
 
 출력:
+
 ```
 Test Accuracy: 0.8700
 Test F1: 0.8695
@@ -940,26 +946,31 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 **B회차 (90분) — Full Fine-tuning 실습**
 
 **과제 목표**:
+
 - Hugging Face Trainer API를 사용하여 BERT 모델을 도메인 데이터로 파인튜닝한다
 - 학습 곡선을 시각화하고 과적합 신호를 포착한다
 - Confusion Matrix와 다양한 평가 지표를 계산하여 모델 성능을 분석한다
 
 **과제 구성** (3단계, 30~40분 완결):
+
 - **체크포인트 1 (10분)**: Datasets 라이브러리로 데이터 로드 및 토크나이제이션
 - **체크포인트 2 (15분)**: Trainer API로 파인튜닝 수행 및 학습 곡선 시각화
 - **체크포인트 3 (10분)**: Confusion Matrix와 클래스별 Recall 분석
 
 **제출 형식**:
+
 - 완성된 코드 파일 (`practice/chapter9/code/9-1-bert-finetuning.py`)
 - 학습 곡선 그래프 (`practice/chapter9/data/output/learning_curves_ko.png`)
 - 성능 분석 리포트 (Confusion Matrix, 클래스별 Recall, 과적합 분석 2~3문단)
 
 **Copilot 활용 가이드**:
+
 - 기본: "Hugging Face Trainer로 BERT를 감성 분류 데이터셋에 파인튜닝해줄래?"
 - 심화: "Early Stopping을 추가해서 최적 모델을 자동으로 선택하는 코드로 수정해줄래?"
 - 검증: "이 모델의 Confusion Matrix를 출력하고 클래스별 Precision/Recall을 계산해줘"
 
 **Copilot 사용 시 검증 포인트**:
+
 - Warmup steps 설정 (보통 데이터셋 크기의 10% = 약 100~500 steps)
 - Learning rate (파인튜닝은 2e-5 ~ 5e-5, 처음부터 학습하는 경우와 100배 차이)
 - Batch size와 GPU 메모리의 관계 (16 또는 8 권장)
@@ -989,6 +1000,7 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 **설명**: Train Loss(0.05)와 Val Loss(0.61) 사이에 10배 이상의 큰 격차가 있다. 이는 모델이 학습 데이터에 과하게 적응(과적합)했음을 명확히 보여준다. 또한 테스트 정확도가 73%로 낮은 것은 과적합된 모델이 새 데이터에 일반화되지 못함을 확인시켜준다.
 
 **해결 방법**:
+
 1. Early Stopping을 적용하여 Val Loss가 최소일 때의 체크포인트를 사용한다
 2. Warmup steps나 Weight Decay를 증가시킨다
 3. Learning rate를 더 낮춘다 (1e-5로 조정)
@@ -1000,10 +1012,10 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 
 이 장의 내용을 더 깊이 학습하려면 다음 자료를 참고하라:
 
-- Devlin, J. et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. *arXiv*. https://arxiv.org/abs/1810.04805
-- Howard, J. & Ruder, S. (2018). Universal Language Model Fine-tuning for Text Classification. *ACL*. https://arxiv.org/abs/1801.06146
+- Devlin, J. et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. _arXiv_. https://arxiv.org/abs/1810.04805
+- Howard, J. & Ruder, S. (2018). Universal Language Model Fine-tuning for Text Classification. _ACL_. https://arxiv.org/abs/1801.06146
 - Hugging Face Course. Fine-tuning a Pretrained Model. https://huggingface.co/course/en/chapter3/1
-- Lin, T. Y. et al. (2017). Focal Loss for Dense Object Detection. *ICCV*. https://arxiv.org/abs/1708.02002
+- Lin, T. Y. et al. (2017). Focal Loss for Dense Object Detection. _ICCV_. https://arxiv.org/abs/1708.02002
 
 ---
 
@@ -1015,9 +1027,9 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 
 ## 참고문헌
 
-1. Devlin, J. et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. *arXiv*. https://arxiv.org/abs/1810.04805
-2. Howard, J. & Ruder, S. (2018). Universal Language Model Fine-tuning for Text Classification. *ACL*. https://arxiv.org/abs/1801.06146
-3. Pérez, J. M. et al. (2021). Spanish Pre-trained BERT Model and Evaluation Data. *LREC*. https://arxiv.org/abs/2107.07566
-4. Lin, T. Y. et al. (2017). Focal Loss for Dense Object Detection. *ICCV*. https://arxiv.org/abs/1708.02002
-5. Vaswani, A. et al. (2017). Attention Is All You Need. *NeurIPS*. https://arxiv.org/abs/1706.03762
-6. Zhang, C. et al. (2021). Understanding Deep Learning (Still) Requires Rethinking Generalization. *CACM*, 64(3), 107-115. https://arxiv.org/abs/1611.03530
+1. Devlin, J. et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. _arXiv_. https://arxiv.org/abs/1810.04805
+2. Howard, J. & Ruder, S. (2018). Universal Language Model Fine-tuning for Text Classification. _ACL_. https://arxiv.org/abs/1801.06146
+3. Pérez, J. M. et al. (2021). Spanish Pre-trained BERT Model and Evaluation Data. _LREC_. https://arxiv.org/abs/2107.07566
+4. Lin, T. Y. et al. (2017). Focal Loss for Dense Object Detection. _ICCV_. https://arxiv.org/abs/1708.02002
+5. Vaswani, A. et al. (2017). Attention Is All You Need. _NeurIPS_. https://arxiv.org/abs/1706.03762
+6. Zhang, C. et al. (2021). Understanding Deep Learning (Still) Requires Rethinking Generalization. _CACM_, 64(3), 107-115. https://arxiv.org/abs/1611.03530

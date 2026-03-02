@@ -15,13 +15,13 @@
 
 ### 수업 타임라인
 
-| 시간 | 내용 | Copilot 사용 |
-|------|------|-------------|
-| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항) | 사용 안 함 |
-| 00:05~00:55 | 이론 강의 (직관적 비유 → 개념 → 원리) | 사용 안 함 |
-| 00:55~01:25 | 라이브 코딩 시연 (BERTopic 파이프라인 전체) | 교수 시연 시 선택 사용 |
-| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개 | |
-| 01:28~01:30 | Exit ticket (1문항) | |
+| 시간        | 내용                                        | Copilot 사용                  |
+| ----------- | ------------------------------------------- | ----------------------------- |
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)         | 사용 안 함                    |
+| 00:05~00:55 | 이론 강의 (직관적 비유 → 개념 → 원리)       | 사용 안 함                    |
+| 00:55~01:25 | 라이브 코딩 시연 (BERTopic 파이프라인 전체) | 직접 실습 또는 시연 영상 참고 |
+| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개            |                               |
+| 01:28~01:30 | Exit ticket (1문항)                         |                               |
 
 ---
 
@@ -32,6 +32,7 @@
 **빠른 진단 (1문항)**:
 
 다음 세 문서를 보라:
+
 - 문서 1: "국회는 새 세금 법안을 통과시켰다. 대통령이 서명했다."
 - 문서 2: "총리가 정책 회의를 주재했다. 부처장들이 참석했다."
 - 문서 3: "새로운 딥러닝 모델이 SOTA를 달성했다. 논문이 발표되었다."
@@ -242,6 +243,7 @@ embeddings = model.encode(documents)  # (N, 384) 행렬
 **문제**: BERT 임베딩은 384차원이다. 384차원 공간에서는 "거리"의 개념이 이상해진다. 이를 **"차원의 저주(Curse of Dimensionality)"**라 한다.
 
 고차원 공간에서는:
+
 - 거의 모든 점 쌍이 비슷한 거리에 있다
 - 가까운 점과 먼 점의 구분이 흐릿해진다
 - 클러스터링이 정확하지 않다
@@ -298,6 +300,7 @@ labels = hdbscan_model.fit_predict(reduced_embeddings)
 **c-TF-IDF(class-based Term Frequency-Inverse Document Frequency)**는 이를 위한 기법이다.
 
 아이디어:
+
 1. 주제 0에 속하는 모든 문서를 하나로 합친다
 2. 주제 0의 특징 단어를 찾기 위해, "주제 0에서는 자주 나타나지만 다른 주제에서는 드물게 나타나는 단어"를 찾는다
 3. 이 단어들을 주제 0의 핵심 단어로 선정한다
@@ -346,13 +349,13 @@ topic_model.merge_topics(docs, threshold=0.80)
 
 **표 8.1** BERTopic 주요 시각화 기능
 
-| 시각화 | 설명 | 사용 |
-|--------|------|------|
-| Topic Bar Chart | 각 주제의 상위 단어들을 막대그래프로 표시 | `visualize_barchart()` |
-| Topic Heatmap | 주제-단어 가중치 행렬을 히트맵으로 시각화 | `visualize_heatmap()` |
-| Topic Network | 주제들 간 유사도를 네트워크 그래프로 표현 | `visualize_hierarchy()` |
-| Term Rank | 각 단어의 BERTopic 스코어를 시각화 | `visualize_term_rank()` |
-| Document Topic Distribution | 특정 문서의 주제 비율을 표시 | (커스텀 코드) |
+| 시각화                      | 설명                                      | 사용                    |
+| --------------------------- | ----------------------------------------- | ----------------------- |
+| Topic Bar Chart             | 각 주제의 상위 단어들을 막대그래프로 표시 | `visualize_barchart()`  |
+| Topic Heatmap               | 주제-단어 가중치 행렬을 히트맵으로 시각화 | `visualize_heatmap()`   |
+| Topic Network               | 주제들 간 유사도를 네트워크 그래프로 표현 | `visualize_hierarchy()` |
+| Term Rank                   | 각 단어의 BERTopic 스코어를 시각화        | `visualize_term_rank()` |
+| Document Topic Distribution | 특정 문서의 주제 비율을 표시              | (커스텀 코드)           |
 
 **Topic Bar Chart의 예**:
 
@@ -386,7 +389,7 @@ topic_model.update_topics(docs, topics=topics, vectorizer_model=new_vectorizer)
 
 ### 라이브 코딩 시연
 
-> **라이브 코딩 시연**: 교수가 BERTopic 파이프라인을 처음부터 끝까지 실행하며, 각 단계의 결과(임베딩 차원 축소, 클러스터 분포, 핵심 단어 추출, 시각화)를 실시간으로 보여준다.
+> **학습 가이드**: BERTopic 파이프라인을 처음부터 끝까지 실행하며, 각 단계의 결과(임베딩 차원 축소, 클러스터 분포, 핵심 단어 추출, 시각화)를 직접 실습하거나 시연 영상을 참고하여 따라가 보자.
 
 이 시연에서는 BBC 뉴스 데이터셋을 사용하여 토픽 모델링을 수행한다.
 
@@ -413,6 +416,7 @@ for i in range(3):
 ```
 
 출력:
+
 ```
 총 1000개 문서 로드됨
 
@@ -440,6 +444,7 @@ print(f"임베딩 첫 5개 차원: {embeddings[0][:5]}")
 ```
 
 출력:
+
 ```
 임베딩 형태: (1000, 384)
 임베딩 첫 5개 차원: [-0.08421 -0.12343  0.05678  0.14325 -0.09876]
@@ -462,6 +467,7 @@ print(reduced_embeddings[:3])
 ```
 
 출력:
+
 ```
 축소된 임베딩 형태: (1000, 5)
 
@@ -497,6 +503,7 @@ for cluster_id, count in cluster_counts.items():
 ```
 
 출력:
+
 ```
 발견된 클러스터 개수: 5
 노이즈 (주제 없는 문서): 32개
@@ -544,6 +551,7 @@ for topic_id, words in topics_dict.items():
 ```
 
 출력:
+
 ```
 각 주제의 핵심 단어:
 주제 0: business, company, sales, market, growth
@@ -554,6 +562,7 @@ for topic_id, words in topics_dict.items():
 ```
 
 **해석**: HDBSCAN이 발견한 5개 클러스터가 실제로 서로 다른 주제를 대표한다:
+
 - 주제 0: 비즈니스
 - 주제 1: 스포츠
 - 주제 2: 기술
@@ -588,6 +597,7 @@ print(topic_info.head(10))
 ```
 
 출력:
+
 ```
 학습 완료!
 발견된 주제 개수: 5
@@ -618,6 +628,7 @@ fig.show()
 ```
 
 **시각화 해석**:
+
 - **Bar Chart**: 각 주제가 어떤 단어로 특징지어지는지 보여준다. 크기가 클수록 그 주제에 더 특징적인 단어다.
 - **Heatmap**: 행은 주제, 열은 단어. 색이 진할수록 그 주제에 중요한 단어다. 열 패턴이 다르면 주제가 서로 다르다는 뜻.
 - **Network**: 주제들을 노드로, 유사도를 간선으로 표현. 가까이 있는 주제들은 의미가 비슷하다(예: "비즈니스"와 "기술"은 경제적 관련성이 있어 가깝다).
@@ -643,6 +654,7 @@ for t in range(len(set(topics)) - 1):
 ```
 
 출력:
+
 ```
 문서: Apple Inc. reported strong iPhone sales in the latest quarter, beating analyst expectations. The company's...
 주제: 0
@@ -687,21 +699,25 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 **B회차 (90분) — 실습 + 토론**: BERTopic 파이프라인 구현 및 결과 해석
 
 **과제 목표**:
+
 - BERTopic을 사용하여 뉴스 데이터셋의 숨겨진 주제를 자동 추출한다
 - 각 주제의 핵심 단어를 해석하고, 주제 간의 유사도를 분석한다
 - 토픽 모델링 결과를 시각화하고, 결과의 타당성을 평가한다
 
 **과제 구성** (3단계, 30~40분 완결):
+
 - **체크포인트 1 (10분)**: BERTopic 모델 초기화, 학습, 주제 추출
 - **체크포인트 2 (15분)**: 주제 시각화 (Bar Chart, Heatmap, Network) 및 해석
 - **체크포인트 3 (10분)**: 특정 문서의 주제 분포 분석 및 트렌드 해석
 
 **제출 형식**:
+
 - 완성된 코드 파일 (`practice/chapter8/code/8-2-bertopic-analysis.py`)
 - 시각화 이미지 (Bar Chart, Heatmap, Network) (`practice/chapter8/data/output/`)
 - 분석 리포트 (주제 해석, 결과 평가, 2~3문단)
 
 **Copilot 활용 가이드**:
+
 - 기본: "BBC 뉴스 데이터로 BERTopic을 실행해줘"
 - 심화: "각 주제의 시간별 변화를 시각화하는 코드를 추가해줄 수 있어?"
 - 검증: "이 결과의 품질을 평가하는 메트릭(Coherence, Diversity)을 계산해줄래?"
@@ -731,10 +747,10 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 
 이 장의 내용을 더 깊이 학습하려면 다음 자료를 참고하라:
 
-- Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet Allocation. *JMLR*. https://jmlr.csail.mit.edu/papers/v3/blei03a.html
-- Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. *arXiv*. https://arxiv.org/abs/2203.05556
-- McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. *arXiv*. https://arxiv.org/abs/1802.03426
-- Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. *PAKDD*. https://link.springer.com/chapter/10.1007/978-3-642-37456-2_14
+- Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet Allocation. _JMLR_. https://jmlr.csail.mit.edu/papers/v3/blei03a.html
+- Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. _arXiv_. https://arxiv.org/abs/2203.05556
+- McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. _arXiv_. https://arxiv.org/abs/1802.03426
+- Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. _PAKDD_. https://link.springer.com/chapter/10.1007/978-3-642-37456-2_14
 
 ---
 
@@ -746,9 +762,9 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 
 ## 참고문헌
 
-1. Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet Allocation. *Journal of Machine Learning Research*, 3, 993-1022. https://jmlr.csail.mit.edu/papers/v3/blei03a.html
-2. Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. *arXiv preprint*. https://arxiv.org/abs/2203.05556
-3. McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. *arXiv preprint*. https://arxiv.org/abs/1802.03426
-4. Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. *Pacific-Asia Conference on Knowledge Discovery and Data Mining (PAKDD)*, 160-172.
-5. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. *ICLR*. https://arxiv.org/abs/1810.04805
-6. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. *EMNLP*. https://arxiv.org/abs/1908.10084
+1. Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet Allocation. _Journal of Machine Learning Research_, 3, 993-1022. https://jmlr.csail.mit.edu/papers/v3/blei03a.html
+2. Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. _arXiv preprint_. https://arxiv.org/abs/2203.05556
+3. McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. _arXiv preprint_. https://arxiv.org/abs/1802.03426
+4. Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. _Pacific-Asia Conference on Knowledge Discovery and Data Mining (PAKDD)_, 160-172.
+5. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. _ICLR_. https://arxiv.org/abs/1810.04805
+6. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. _EMNLP_. https://arxiv.org/abs/1908.10084
