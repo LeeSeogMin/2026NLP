@@ -178,3 +178,85 @@ GitHub는 **Copilot Free** (제한된 무료 플랜)와 **Copilot Pro** (고급 
 - 각 메뉴와 도구는 프로젝트 목적에 맞게 선택하여 사용하세요.
 
 ---
+
+# 실습 환경 자동 설정 (setup_env.py)
+
+15주차 전체 실습에 필요한 Python 환경을 **한 번에** 구축하는 스크립트이다. GPU를 자동 감지하여 최적의 PyTorch를 설치하고, 모든 실습 패키지를 일괄 설치한다.
+
+## 사전 요구사항
+
+- **Python 3.10 이상** (https://www.python.org/downloads/)
+- **(선택) NVIDIA GPU**: 드라이버가 설치되어 있으면 CUDA 버전을 자동 감지한다
+
+Python 설치 확인:
+
+```bash
+python --version
+```
+
+## 실행 방법
+
+> VSCode 통합 터미널(Ctrl+`) 또는 CMD/PowerShell에서 실행한다. 프로젝트 루트(`2026NLP/`) 디렉토리에서 실행해야 한다.
+
+### 기본 실행 (자동 감지)
+
+```bash
+python scripts/setup_env.py
+```
+
+GPU가 있으면 자동으로 CUDA/MPS 버전 PyTorch를 설치하고, 없으면 CPU 버전을 설치한다.
+
+### 옵션
+
+```bash
+python scripts/setup_env.py --cpu         # GPU 무시, CPU 버전 강제 설치
+python scripts/setup_env.py --cuda 12.1   # CUDA 버전 수동 지정
+python scripts/setup_env.py --skip-venv   # 이미 가상환경 안에 있을 때
+```
+
+## 스크립트가 수행하는 작업 (7단계)
+
+| 단계 | 내용 | 소요시간 |
+|------|------|----------|
+| 1단계 | 시스템 정보 확인 (OS, Python 버전) | 즉시 |
+| 2단계 | GPU 자동 감지 (NVIDIA CUDA / Apple MPS / CPU) | 즉시 |
+| 3단계 | `venv` 가상환경 생성 + pip 업그레이드 | ~30초 |
+| 4단계 | GPU에 맞는 PyTorch 설치 | 2~5분 |
+| 5단계 | `requirements.txt` 전체 패키지 설치 | 5~10분 |
+| 6단계 | 설치 검증 (핵심 패키지 13개 + GPU 설정) | ~10초 |
+| 7단계 | GPU 벤치마크 (4096×4096 행렬 곱 CPU vs GPU) | ~30초 |
+
+## 설치 후 사용
+
+가상환경 활성화:
+
+```bash
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+```
+
+실습 코드 실행:
+
+```bash
+python practice/chapter1/code/1-3-텐서기초.py
+```
+
+## 지원 환경
+
+| OS | GPU | PyTorch 설치 방식 |
+|----|-----|-------------------|
+| Windows 10/11 | NVIDIA (CUDA 11.6~12.6) | CUDA 자동 감지 설치 |
+| macOS (Apple Silicon) | M1/M2/M3/M4 | MPS 가속 자동 적용 |
+| macOS (Intel) / Linux | 없음 | CPU 버전 설치 |
+
+## 문제 해결
+
+- **"Python 3.10 이상이 필요합니다"**: Python 최신 버전을 설치한다 (https://www.python.org/downloads/)
+- **PyTorch 설치 실패**: `--cpu` 옵션으로 CPU 버전을 먼저 설치한 뒤, 나중에 GPU 버전으로 재설치한다
+- **일부 패키지 설치 실패**: 선택 패키지(bitsandbytes 등)는 실패해도 대부분의 실습에 영향 없다. 해당 주차에서 필요 시 개별 설치한다
+- **GPU가 감지되지 않음**: NVIDIA 드라이버가 설치되어 있는지 확인한다 (`nvidia-smi` 명령 실행). 드라이버 설치 후 스크립트를 다시 실행하면 된다
+
+---
