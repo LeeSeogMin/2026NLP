@@ -117,6 +117,7 @@ checklists/
 content/
 schema/
 scripts/
+.claude/
 
 # 기타
 requirements.txt
