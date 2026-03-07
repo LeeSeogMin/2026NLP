@@ -98,6 +98,28 @@ practice/**/code/*.joblib
 practice/**/code/checkpoints/
 practice/**/results/
 practice/**/imdb_results/
+
+# ===================
+# 집필 프로세스 파일 (원격에서 제외)
+# ===================
+# docs/, practice/, syllabus.md만 원격에 유지
+
+# 프로젝트 메타 문서
+CLAUDE.md
+contents.md
+context.md
+github.md
+README.md
+todo.md
+
+# 집필 프로세스 폴더
+checklists/
+content/
+schema/
+scripts/
+
+# 기타
+requirements.txt
 *.safetensors
 *.ckpt
 
