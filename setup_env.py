@@ -164,7 +164,14 @@ def verify_installation():
         try:
             importlib.import_module(module)
             print(f"  ✓ {name} import OK")
-        except ImportErrCUDA/MPS 지원)"""
+        except ImportError:
+            print(f"  ✗ {name} import 실패")
+            all_ok = False
+
+    return all_ok
+
+def benchmark_cpu_gpu():
+    """CPU vs GPU 벤치마크 (CUDA/MPS 지원)"""
     import time
 
     print(f"- 벤치마크 수행 중...")
@@ -213,21 +220,14 @@ def verify_installation():
         speedup = cpu_time / mps_time
         print(f"  속도 향상: {speedup:.1f}배 ✓")
     
-            C_gpu = torch.matmul(A_gpu, A_gpu)
-        torch.cuda.synchronize()
-        gpu_time = (time.time() - start) / 3
-
-        print(f"  GPU 행렬 곱 (1000×1000): {gpu_time:.4f}초")
-        speedup = cpu_time / gpu_time
-        print(f"  속도 향상: {speedup:.1f}배 ✓")
     else:
         print(f"  GPU 미감지: GPU 벤치마크 스킵")
 
 def main():
-    device_type = detect_gpu()
-
-    print_section("Step 3: PyTorch 설치")
-    if not install_pytorch(device_type
+    """메인 함수: 모든 설정 단계 실행"""
+    print("\n" + "="*60)
+    print("PyTorch 개발 환경 자동 설정")
+    print("="*60)
 
     print(f"시스템 정보:")
     print(f"  OS: {platform.system()}")
@@ -240,21 +240,13 @@ def main():
         return False
 
     print_section("Step 2: GPU 감지")
-    has_gpu = detect_gpu()
+    device_type = detect_gpu()
 
     print_section("Step 3: PyTorch 설치")
-    if not install_pytorch(has_gpu):
+    if not install_pytorch(device_type):
         print("✗ PyTorch 설치에 실패했습니다.")
         return False
-if device_type == "cuda":
-        print(f"  감지된 디바이스: NVIDIA GPU (CUDA)")
-        print(f"  사용 방법: device = torch.device('cuda')")
-    elif device_type == "mps":
-        print(f"  감지된 디바이스: Apple Silicon (MPS)")
-        print(f"  사용 방법: device = torch.device('mps')")
-    else:
-        print(f"  감지된 디바이스: CPU")
-        print(f"  사용 방법: device = torch.device('cpu')
+
     print_section("Step 4: 필수 패키지 설치")
     if not install_dependencies():
         print("✗ 일부 패키지 설치에 실패했습니다.")
@@ -270,7 +262,15 @@ if device_type == "cuda":
 
     print_section("완료")
     print("✓ 모든 설정이 완료되었습니다!")
-    print(f"  다음 단계: GPU가 있다면 'cuda', 없다면 'cpu'를 활용하세요")
+    if device_type == "cuda":
+        print(f"  감지된 디바이스: NVIDIA GPU (CUDA)")
+        print(f"  사용 방법: device = torch.device('cuda')")
+    elif device_type == "mps":
+        print(f"  감지된 디바이스: Apple Silicon (MPS)")
+        print(f"  사용 방법: device = torch.device('mps')")
+    else:
+        print(f"  감지된 디바이스: CPU")
+        print(f"  사용 방법: device = torch.device('cpu')")
     print("="*60)
 
     return True
