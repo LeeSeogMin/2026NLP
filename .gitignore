@@ -137,6 +137,7 @@ logs/
 # ===================
 .env
 .env.local
+.mcp.json
 config/secrets.yaml
 *_secret.json
 credentials.json
