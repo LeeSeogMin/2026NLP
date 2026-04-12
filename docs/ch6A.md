@@ -1,951 +1,480 @@
-## 6주차 A회차: LLM API 활용과 프롬프트 엔지니어링
+## 6주차 A회차: LLM API와 프롬프트 엔지니어링 입문
 
-> **미션**: 수업이 끝나면 LLM API를 호출하고, 프롬프팅 기법의 효과를 실무에 적용할 수 있다
+> 미션: 수업이 끝나면 LLM API, 토큰, 프롬프트, Pydantic, Function Calling의 역할을 설명할 수 있다.
 
 ### 학습목표
 
-이 회차를 마치면 다음을 수행할 수 있다:
+이 회차를 마치면 다음을 수행할 수 있다.
 
-1. OpenAI, Anthropic 등 주요 LLM API의 호출 구조와 토큰 과금 체계를 이해한다
-2. Zero-shot, Few-shot, Chain-of-Thought 프롬프팅 기법의 성능 차이를 비교·적용할 수 있다
-3. Pydantic을 사용하여 LLM 출력을 구조화하고 안정적으로 파싱할 수 있다
-4. Function Calling으로 LLM에 외부 도구를 연동하는 아키텍처를 설계할 수 있다
-5. LLM-as-a-Judge 패턴으로 모델 출력을 자동 평가할 수 있다
+1. API와 LLM API의 기본 개념을 설명할 수 있다.
+2. API Key를 안전하게 관리해야 하는 이유를 이해한다.
+3. 토큰이 입력·출력 길이와 비용에 관련된 단위임을 설명할 수 있다.
+4. 프롬프트 엔지니어링의 기본 원칙을 적용할 수 있다.
+5. Pydantic이 LLM 출력을 정해진 형식으로 다루는 데 쓰인다는 점을 이해한다.
+6. Function Calling이 LLM과 외부 도구를 연결하는 방식임을 설명할 수 있다.
+
+### 수업 타임라인
+
+| 시간 | 내용 | 방식 |
+|---:|---|---|
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단 | 질의응답 |
+| 00:05~00:20 | API 개념과 LLM API 사용 흐름 | 강의 |
+| 00:20~00:35 | API Key와 토큰 개념 | 강의 + 예시 |
+| 00:35~00:50 | 프롬프트 엔지니어링 기본 | 예시 비교 |
+| 00:50~01:05 | Pydantic과 구조화 출력 소개 | 코드 읽기 |
+| 01:05~01:20 | Function Calling 소개 | 흐름도 설명 |
+| 01:20~01:27 | 전체 구조 연결 | 미니 시스템 설계 |
+| 01:27~01:30 | Exit Ticket | 개별 제출 |
 
 ---
 
 ### 오늘의 질문 + 빠른 진단
 
-**오늘의 질문**: "내 컴퓨터에 GPT-4나 Claude를 설치할 수 없는데, 이 모델들을 실제로 쓸 수 있을까? 어떻게?"
+오늘의 질문: "ChatGPT 웹사이트에서 질문하는 것과 Python 코드에서 LLM API를 호출하는 것은 무엇이 다를까?"
 
-**빠른 진단 (1문항)**:
+빠른 진단:
 
-다음 중 맞는 설명은?
+다음 중 LLM API에 대한 설명으로 가장 적절한 것은?
 
-① 상용 LLM(GPT-4, Claude)을 쓰려면 반드시 내 컴퓨터에 설치해야 한다
-② API를 호출하면 원격 서버에서 계산이 일어나고, 그 결과만 받으면 된다
-③ API는 무료이지만 매우 느리다
-④ 프롬프팅 기법은 모델 성능에 영향을 주지 않는다
+① 내 컴퓨터에 GPT 모델을 직접 설치하는 방법이다.  
+② 웹사이트에서만 사용할 수 있는 챗봇 기능이다.  
+③ 프로그램이 인터넷을 통해 LLM에 요청을 보내고 응답을 받는 방식이다.  
+④ 텍스트를 토큰으로 나누는 알고리즘이다.
 
-정답: **②** — 이것이 오늘 배울 LLM API의 핵심이다.
+정답: ③
+
+LLM API는 프로그램에서 모델 서버에 요청을 보내고, 모델이 생성한 응답을 다시 받는 방식이다. 웹사이트에서 직접 질문하는 것과 달리, API를 사용하면 LLM 기능을 내 프로그램, 웹앱, 업무 자동화 도구 안에 넣을 수 있다.
 
 ---
 
-### 이론 강의
+## 6.1 API와 LLM API
 
-#### 6.1 상용 LLM API 생태계
+### API란 무엇인가
 
-##### API의 필요성
+API(Application Programming Interface)는 프로그램끼리 정해진 방식으로 요청과 응답을 주고받는 통로이다. 사람이 식당에서 메뉴판을 보고 주문하듯, 프로그램도 API 문서에 정해진 형식에 맞추어 요청을 보낸다.
 
-5장까지 여러분은 BERT, GPT의 **구조와 원리**를 배웠다. 하지만 실제로 GPT-4를 학습하려면?
+예를 들어 날씨 앱은 기상청 서버에 "서울의 현재 날씨를 알려 달라"는 요청을 보내고, 서버는 온도, 습도, 날씨 상태를 응답으로 돌려준다. 이때 앱과 서버가 서로 대화하는 규칙이 API이다.
 
-- **GPU**: A100 고급형 수백 대
-- **시간**: 수개월의 학습
-- **비용**: 수천만 달러
+LLM API도 같은 구조를 따른다. 차이는 요청의 내용이 텍스트 프롬프트이고, 응답의 내용이 모델이 생성한 텍스트라는 점이다.
 
-일반 개발자나 중소기업이 감당할 수 없는 규모다.
-
-**직관적 이해**: 자동차 엔진을 직접 만들 필요는 없다. 택시를 타면 된다. LLM API는 "수천억 파라미터의 거대한 모델을 인터넷으로 빌려 쓰는 것"이다. 내 컴퓨터에 설치할 수 없지만, **API 한 줄로 이 모델들의 능력을 활용**할 수 있다. 택시 요금을 내듯 사용한 토큰만큼만 비용을 지불한다.
-
-**API(Application Programming Interface)**는 제공자가 대규모 인프라에서 모델을 운영하고, 개발자는 HTTP 요청으로 **추론 결과만 받는 구조**이다. 학습, GPU 구매, 배포 모두 API 제공자의 책임이다.
-
-> **쉽게 말해서**: 당신은 은행 창구에 가서 "10만 원 출금해주세요"라고 요청만 한다. 은행의 전자 시스템이 돈을 세고 출금을 처리하는 복잡한 일은 모르고, 결과만 받는 것과 같다.
-
-##### 주요 API 제공자
-
-현재 LLM API 생태계는 크게 네 축으로 구성된다.
-
-**표 6.1** 주요 LLM API 제공자 (2026년 초)
-
-| 제공자        | 대표 모델                        | 특징                                      | 컨텍스트 길이 |
-| ------------- | -------------------------------- | ----------------------------------------- | :-----------: |
-| **OpenAI**    | GPT-4o, o1, o3                   | 가장 넓은 생태계, Function Calling 선구자 |     128K      |
-| **Anthropic** | Claude 4.5 Sonnet, Claude Opus 4 | 긴 컨텍스트, 안전성 강조                  |     200K      |
-| **Google**    | Gemini 2.0 Flash/Pro             | 멀티모달 통합, 매우 긴 컨텍스트           |      1M       |
-| **오픈소스**  | Llama 4, Mistral, DeepSeek       | 로컬 실행 가능, 커스터마이징 자유         |     다양      |
-
-상용 API는 "**편의성 + 최고 성능**"을 제공하고, 오픈소스는 "**자유도 + 비용 통제**"를 제공한다. 프로젝트 특성에 따라 선택한다.
-
-> **그래서 무엇이 달라지는가?** 1장에서 배운 BERT는 로컬에서 학습/추론하므로 속도와 개인정보 보호는 유리하지만, 크기가 크고 GPU가 필요하다. 반면 API는 최신 강력한 모델을 즉시 쓸 수 있고, 별도 설치가 없으며, 자동 업데이트 혜택을 받는다. 다만 인터넷 연결이 필수이고, 요청마다 비용이 발생하며, 개인정보가 API 제공자의 서버를 거친다.
-
-##### API 호출의 기본 구조
-
-모든 LLM API는 동일한 패턴을 따른다: **메시지 배열을 보내면 생성된 텍스트를 받는다.**
-
-**표 6.2** OpenAI vs Anthropic SDK 구조 비교
-
-| 항목             | OpenAI                                | Anthropic                   |
-| ---------------- | ------------------------------------- | --------------------------- |
-| 초기화           | `OpenAI()` (자동 env 참조)            | `anthropic.Anthropic()`     |
-| System 메시지    | `messages` 배열 내 `role: "system"`   | 별도 `system=` 파라미터     |
-| max_tokens       | 선택 (기본값 있음)                    | **필수**                    |
-| 응답 텍스트 접근 | `response.choices[0].message.content` | `message.content[0].text`   |
-| 토큰 사전 계산   | 클라이언트 (`tiktoken` 라이브러리)    | 서버 (`count_tokens()` API) |
-
-OpenAI 호출 (Chat Completions API):
-
-```python
-from openai import OpenAI
-
-client = OpenAI()
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[
-        {"role": "system", "content": "당신은 NLP 전문가입니다."},
-        {"role": "user", "content": "자연어처리가 뭔가요?"},
-    ],
-)
-print(response.choices[0].message.content)
+```text
+내 Python 코드
+→ API 요청
+→ LLM 서버
+→ API 응답
+→ 내 Python 코드에서 결과 사용
 ```
 
-Anthropic 호출 (Messages API):
+### 왜 LLM API를 사용하는가
+
+BERT나 GPT 같은 언어 모델은 크기가 크다. 특히 최신 LLM은 일반 노트북에서 직접 학습하거나 실행하기 어렵다. 모델 학습에는 대규모 데이터, GPU, 운영 인프라가 필요하다.
+
+LLM API를 사용하면 이 복잡한 과정을 직접 맡지 않아도 된다. 개발자는 텍스트를 보내고 결과를 받는다. 모델 운영, 서버 관리, GPU 사용은 API 제공자가 담당한다.
+
+쉽게 말해 LLM API는 거대한 언어 모델을 인터넷으로 빌려 쓰는 방법이다.
+
+### LLM API의 기본 호출 구조
+
+대부분의 LLM API는 다음 흐름으로 작동한다.
+
+1. 사용할 모델을 고른다.
+2. 모델에게 보낼 메시지를 작성한다.
+3. API에 요청을 보낸다.
+4. 응답 객체에서 모델의 답변을 꺼낸다.
+
+OpenAI API를 사용하는 가장 단순한 예시는 다음과 같다.
 
 ```python
-import anthropic
-
-client = anthropic.Anthropic()
-message = client.messages.create(
-    model="claude-sonnet-4-5-20250514",
-    max_tokens=1024,
-    system="당신은 NLP 전문가입니다.",
-    messages=[
-        {"role": "user", "content": "자연어처리가 뭔가요?"},
-    ],
-)
-print(message.content[0].text)
-```
-
-두 SDK는 구조가 유사하지만 세부 사항이 다르다. 초기화, 파라미터 전달 방식, 응답 접근법이 서로 다르므로 문서를 항상 참조해야 한다.
-
-> **쉽게 말해서**: 두 API는 모두 "메시지를 보내고 답을 받는" 일을 한다. 하지만 메시지를 보내는 방식(system 메시지의 위치), 최대 출력 길이 지정 방식(필수 vs 선택), 답을 받는 방식(response 객체 접근법)이 다르다. 같은 일을 하는 두 택시 회사가 탑승 방식(입구 위치)을 다르게 한 것과 같다.
-
-_전체 코드는 practice/chapter6/code/6-1-api기초.py 참고_
-
-##### API Key 관리와 보안
-
-API 호출에는 **API Key**가 필수이다. 이것은 비밀번호와 같으므로 절대 코드에 직접 쓰면 안 된다. 관례는 `.env` 파일에서 환경변수로 로드하는 것이다.
-
-```python
-# .env 파일 (절대 Git에 커밋하지 않음)
-OPENAI_API_KEY=sk-xxxxxxxxxxxx
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
-```
-
-```python
-# 코드에서 사용
 from dotenv import load_dotenv
-load_dotenv()  # .env 파일을 환경변수로 로드
-# 이후 OpenAI(), Anthropic()은 자동으로 환경변수를 참조한다
-```
-
-`.gitignore`에 `.env`를 **반드시** 추가하자. API Key가 GitHub에 공개되면 누군가 대신 비용을 청구받을 수 있고, 수십만 원대의 요금이 발생할 수 있다.
-
-**직관적 이해**: API Key는 집의 열쇠와 같다. 열쇠를 들고 거리에 나가면 누구나 집에 들어갈 수 있다. GitHub은 공개 창고이므로, 열쇠를 GitHub에 올리면 누구나 들어갈 수 있다는 뜻이다.
-
-##### 토큰과 과금
-
-LLM API는 **토큰(Token)** 단위로 과금한다. 토큰은 단어보다 작은 단위이다.
-
-- **영어**: 단어 1개 ≈ 1~2 토큰 (예: "hello" = 1토큰, "world" = 1토큰)
-- **한국어**: 음절 1개 ≈ 1~3 토큰 (예: "자연어처리" = 4~5 토큰)
-
-같은 의미의 문장이라도 **한국어는 영어보다 약 1.5~2배 많은 토큰을 소비**한다. 한국어 서비스 비용 추정에 중요한 요소이다.
-
-**표 6.3** 주요 모델 토큰 가격 (2026년 초)
-
-| 모델              | 입력 가격/100만 토큰 | 출력 가격/100만 토큰 | 비고           |
-| ----------------- | :------------------: | :------------------: | -------------- |
-| GPT-4o            |        $2.50         |        $10.00        | 범용 최고 성능 |
-| GPT-4o-mini       |        $0.15         |        $0.60         | 가성비 최강    |
-| Claude Sonnet 4.5 |        $3.00         |        $15.00        | 200K 컨텍스트  |
-| Claude Haiku 4.5  |        $1.00         |        $5.00         | 빠른 응답      |
-
-**구체적 비용 계산 예시**:
-
-```
-입력 1,000 토큰 × $2.50/100만 = $0.0025
-출력   500 토큰 × $10.00/100만 = $0.0050
-합계: $0.0075 (약 10원)
-```
-
-**실제 서비스 비용 추정**:
-
-```
-일일 API 호출 수:    1,000회
-평균 입력 토큰/회:   200토큰
-평균 출력 토큰/회:   100토큰
-
-일일 비용:
-  입력: 1,000 × 200 × $2.50 / 1,000,000 = $0.50
-  출력: 1,000 × 100 × $10.00 / 1,000,000 = $1.00
-  소계: $1.50/일
-
-월간 비용:
-  $1.50 × 30 = $45 (약 60,000원)
-```
-
-하루에 API를 1,000회 호출하는 서비스라면 월 약 22만 원 수준이다. 실무에서는 **계층형 전략**을 쓴다: 간단한 작업에는 GPT-4o-mini, 복잡한 작업에만 GPT-4o를 투입한다. 이렇게 하면 비용을 크게 절감할 수 있다.
-
-> **그래서 무엇이 달라지는가?** 토큰 과금은 사용량에 정확히 비례한다는 뜻이다. 로컬 모델 같은 경우 GPU를 구매하면 그 이후로는 돈이 안 들지만(초기 비용 높음), API는 사용할 때마다 돈이 든다(초기 비용 낮지만 누적 비용 가능). 따라서 "대량의 배치 처리"는 로컬이 유리하고, "소량의 실시간 처리"는 API가 유리하다.
-
----
-
-#### 6.2 프롬프트 엔지니어링
-
-##### 프롬프팅의 중요성
-
-**직관적 이해**: 같은 직원에게 "이거 해줘"와 "당신은 10년 경력의 데이터 분석가입니다. 아래 데이터를 분석해서 3가지 핵심 인사이트를 표 형태로 정리해주세요"라고 요청하면 결과가 완전히 다르다. LLM도 마찬가지다. **프롬프트(지시문)를 어떻게 작성하느냐에 따라 출력의 질이 극적으로 달라진다.**
-
-프롬프트 엔지니어링은 기술이라기보다 **LLM과 소통하는 예술**이다. 명확한 지시, 구체적인 예시, 역할 설정, 단계적 추론 유도 등의 기법들이 있고, 각 기법을 상황에 맞게 조합하면 놀라운 성능 향상을 볼 수 있다.
-
-**표 6.4** 프롬프팅 기법의 효과 측정
-
-| 기법      | 질문                                                 | 응답                        | 정확도 |
-| --------- | ---------------------------------------------------- | --------------------------- | :----: |
-| Zero-shot | "감성을 분류해줄 수 있어?"                           | "네, 할 수 있습니다."       |  낮음  |
-| Few-shot  | "예: '좋아요'→긍정, '싫어요'→부정. 이것은?"          | "명확한 예시로 추론"        |  중간  |
-| CoT       | "단계별로 생각해봅시다: 1. 키워드 파악 2. 감성 판단" | "단계적 추론으로 정확한 답" |  높음  |
-
-##### System Prompt와 Role Prompting
-
-**System Prompt**는 모델의 **인격과 행동 규칙**을 정의하는 메시지이다. 사용자 메시지(User Prompt)와 분리되어 **전체 대화에 일관되게 적용**된다.
-
-```python
-messages = [
-    {"role": "system",
-     "content": "당신은 10년 경력의 NLP 연구원입니다. "
-                "학부생도 이해할 수 있게 설명합니다."},
-    {"role": "user", "content": "Attention이 뭔가요?"},
-]
-```
-
-**Role Prompting**은 System Prompt에 구체적인 역할을 부여하는 기법이다. "초등학교 선생님" vs "대학교 교수" vs "유튜버"에게 같은 질문을 하면 어휘 수준, 설명 방식, 톤이 완전히 달라진다.
-
-> **그래서 무엇이 달라지는가?** System Prompt 없으면 모델이 일반적인 톤으로 답한다. Role을 지정하면 그 역할의 관점과 스타일을 따른다. 예를 들어 의료 상담이 필요하면 "당신은 인증받은 의료 상담사입니다"라고 하면, 의료 전문 용어와 책임 있는 표현을 사용한다.
-
-**실제 비교 예시**:
-
-```
-질문: "당뇨병이 뭔가요?"
-
-[Role 없음]
-응답: "당뇨병은 혈당 수치가 높아지는 질환입니다..."
-
-[Role: 초등학교 선생님]
-응답: "우리 몸에는 에너지가 필요한데, 혈당이 높으면 이 에너지를 잘
-사용하지 못하는 병이에요. 마치 자동차에 기름이 있지만 엔진이
-그 기름을 쓰지 못하는 것처럼요."
-
-[Role: 의학 박사]
-응답: "당뇨병은 췌장의 베타 세포가 인슐린을 충분히 생산하지 못하거나,
-신체 세포가 인슐린 신호에 저항하여 발생하는 대사 질환으로,
-혈중 포도당 농도가 지속적으로 상승합니다..."
-```
-
-세 답변 모두 "맞는" 설명이지만, 대상 청중에 따라 복잡도와 사용 언어가 완전히 다르다.
-
-##### 프롬프팅 기법의 진화
-
-LLM 성능을 끌어올리는 기법들은 단순한 것에서 복잡한 것으로 발전해 왔다.
-
-```mermaid
-flowchart TB
-    subgraph zero["Zero-shot"]
-        z1["질문만 제시"]
-        z2["'이 리뷰가 긍정인지<br/>부정인지 분류해줘'"]
-        z1 --> z2
-    end
-
-    subgraph few["Few-shot"]
-        f1["예시 + 질문"]
-        f2["'예시: 좋아요→긍정<br/>별로에요→부정<br/>이 리뷰는?'"]
-        f1 --> f2
-    end
-
-    subgraph cot["Chain-of-Thought"]
-        c1["예시 + 추론 과정 + 질문"]
-        c2["'단계별로 생각하자:<br/>1. 키워드 파악<br/>2. 감성 판단<br/>3. 최종 분류'"]
-        c1 --> c2
-    end
-
-    subgraph sc["Self-Consistency"]
-        s1["CoT를 여러 번 수행"]
-        s2["다수결로 최종 답 선택"]
-        s1 --> s2
-    end
-
-    zero -->|"예시 추가"| few
-    few -->|"추론 과정 추가"| cot
-    cot -->|"다중 샘플링"| sc
-
-    style zero fill:#e8f5e9
-    style few fill:#e3f2fd
-    style cot fill:#fff3e0
-    style sc fill:#fce4ec
-```
-
-**그림 6.1** 프롬프팅 기법의 발전 계층
-
-##### Zero-shot Prompting
-
-가장 단순한 방식이다. 예시 없이 과제만 설명하고 답을 요청한다.
-
-```
-프롬프트: "다음 리뷰의 감성을 '긍정' 또는 '부정'으로 분류하세요.
-          리뷰: 이 영화는 정말 감동적이었고, 배우들의 연기가 훌륭했습니다."
-응답: "긍정"
-```
-
-명확한 과제(분류, 번역 등)에서는 Zero-shot만으로도 충분한 성능을 낸다. 하지만 모호한 기준이나 복잡한 포맷이 필요하면 한계가 있다.
-
-> **쉽게 말해서**: 운전면허 시험에서 "신호등이 빨간색이면 뭐 해야 해?"라고 물으면 대부분 맞혔다. 규칙이 명확하기 때문이다. 하지만 "좋은 에세이를 써줄 수 있어?"라고 물으면 뭔가 애매해 보인다.
-
-##### Few-shot Prompting
-
-**예시(Demonstration)**를 제공하여 모델이 패턴을 학습하게 하는 기법이다. Brown et al.(2020)이 GPT-3 논문에서 소개한 이후 표준 기법이 되었다.
-
-```
-프롬프트: "다음 예시를 참고하여 리뷰의 감성을 분류하세요.
-
-  예시 1: '음식이 맛있고 서비스가 좋았어요' → 긍정
-  예시 2: '배달이 너무 늦고 음식이 식었어요' → 부정
-  예시 3: '가격 대비 양이 적어서 실망했습니다' → 부정
-
-  리뷰: '직원들이 친절하고 분위기가 아늑해서 다시 오고 싶어요'"
-응답: "긍정"
-```
-
-**Few-shot의 핵심**: 예시가 분류 기준을 **암묵적으로 전달**한다. 예시 3개~5개를 제공하면 대부분의 분류 과제에서 Zero-shot 대비 일관된 성능 향상을 본다.
-
-> **쉽게 말해서**: 학생에게 "좋은 에세이를 작성해줘"라고 하면 막힐 수 있지만, "다음은 좋은 에세이입니다: [예시]"라고 보여주면 그 스타일을 따라한다.
-
-**실제 성능 비교**:
-
-```
-감성 분류 정확도 (테스트 100개 리뷰)
-- Zero-shot:  75% (정답 75개)
-- Few-shot (3예시): 87% (정답 87개)
-- Few-shot (5예시): 91% (정답 91개)
-
-예시를 추가할수록 정확도가 상승하지만,
-예시 5개 이상은 큰 변화가 없다 (수확체감 법칙)
-```
-
-##### Chain-of-Thought (CoT) Prompting
-
-Wei et al.(2022)이 발견한 획기적인 기법이다. **"단계별로 생각하세요"라는 한 줄을 추가하는 것만으로도 추론 능력이 극적으로 향상**된다.
-
-**직관적 이해**: 수학 시험에서 "답만 쓰세요"보다 "풀이 과정을 보여주세요"라고 하면 정답률이 올라간다. CoT는 LLM에게 "풀이 과정을 보여줘"라고 요청하는 것과 같다.
-
-**실제 실행 결과**:
-
-```
-문제: "영희는 사과 5개를 가지고 있었습니다. 철수에게 2개를 주고,
-      마트에서 3개를 더 샀습니다. 그 중 절반을 이웃에게 나눠주었습니다.
-      영희에게 남은 사과는 몇 개인가요?"
-
-──── CoT 없이 (직접 답) ────
-  답: 4개  ✗ (오답)
-
-──── CoT 적용 ("단계별로 풀어봅시다." 한 줄 추가) ────
-  1단계: 처음 사과 = 5개
-  2단계: 철수에게 2개 줌 → 5 - 2 = 3개
-  3단계: 마트에서 3개 샀음 → 3 + 3 = 6개
-  4단계: 절반을 이웃에게 줌 → 6 ÷ 2 = 3개
-  답: 3개  ✓ (정답)
-```
-
-**CoT가 효과적인 이유**:
-
-1. **중간 추론 단계를 명시**: "한 번에 답을 내릴 때"의 점프 오류를 방지한다
-2. **복잡한 문제를 분해**: 여러 개의 간단한 하위 문제로 나눈다
-3. **논리적 연쇄 형성**: 각 단계의 결과가 다음 단계의 입력이 된다
-
-> **그래서 무엇이 달라지는가?** Few-shot만으로는 모델이 결과에만 집중한다. CoT를 추가하면 모델이 "왜 이 답인가"를 생각하도록 유도하여, 더 정확한 추론을 한다.
-
-**성능 지표 비교**:
-
-```
-산술 문제 정확도 (GSM8K 벤치마크)
-- Zero-shot:  11%
-- Few-shot:   35%
-- Few-shot + CoT: 80%
-
-추론 깊이가 깊은 문제일수록 CoT의 효과가 더 크다
-```
-
-##### Self-Consistency와 Tree of Thoughts
-
-**Self-Consistency**(Wang et al., 2023)는 CoT를 여러 번 수행한 뒤 **다수결로 최종 답**을 선택하는 기법이다. 하나의 추론 경로가 틀릴 수 있지만, 여러 경로의 합의는 더 신뢰할 수 있다.
-
-> **직관적 이해**: 중요한 결정을 할 때 한 명의 조언만 듣지 말고, 여러 전문가의 의견을 들은 후 다수결로 결정하는 것이 더 안전하다.
-
-**Tree of Thoughts**(Yao et al., 2023)는 한 단계 더 나아가, 추론 과정을 **나무 구조로 확장**한다. 각 추론 단계에서 여러 가지 대안을 탐색하고, 가장 유망한 경로를 선택한다. 탐색, 퍼즐, 계획 수립 같은 복잡한 과제에서 효과적이다.
-
-**표 6.5** 프롬프팅 기법 비교
-
-| 기법             | 원리             | 적합한 과제            | 토큰 비용 |   성능    |
-| ---------------- | ---------------- | ---------------------- | :-------: | :-------: |
-| Zero-shot        | 과제만 설명      | 단순 분류, 번역        |   낮음    |   낮음    |
-| Few-shot         | 예시 제공        | 포맷 제어, 일관성 필요 |   중간    |   중간    |
-| CoT              | 단계적 추론 유도 | 수학, 논리, 복잡 추론  |   높음    |   높음    |
-| Self-Consistency | CoT 다수결       | 정확도가 최우선인 과제 | 매우 높음 | 매우 높음 |
-| Tree of Thoughts | 나무형 탐색      | 탐색, 퍼즐, 계획       | 매우 높음 | 매우 높음 |
-
-_전체 코드는 practice/chapter6/code/6-2-프롬프팅.py 참고_
-
----
-
-#### 6.3 Structured Output과 Function Calling
-
-##### Structured Output: 자유로운 글쓰기를 양식으로
-
-**직관적 이해**: LLM의 기본 출력은 **에세이**와 같다. 자유롭게 쓰되 형식이 일정하지 않다. 하지만 프로그램에서 LLM 결과를 처리하려면 **양식(Form)**처럼 정해진 형식이 필수다. 신청 양식을 제출할 때 자유 형식이 아닌 각 항목을 정확히 채우는 이유와 같다.
-
-왜 필요한가? LLM을 **프로그램의 부품**으로 쓸 때 자유 텍스트는 파싱 오류를 만든다. "가끔 형식이 깨지는" 현상이 발생한다. Structured Output은 이 문제를 **근본적으로 해결**한다.
-
-OpenAI와 Anthropic 모두 **Pydantic** 모델을 직접 전달하여 출력 스키마를 강제하는 기능을 지원한다.
-
-```python
-from pydantic import BaseModel, Field
-
-class NewsExtraction(BaseModel):
-    """뉴스 기사에서 추출할 정보"""
-    company: str = Field(description="기업명")
-    period: str = Field(description="실적 기간 (예: 2024년 3분기)")
-    revenue: str = Field(description="매출액")
-    growth_rate: str = Field(description="성장률 (% 포함)")
-```
-
-이 Pydantic 모델을 API에 전달하면, LLM이 **반드시 이 구조에 맞는 JSON을 생성**한다:
-
-```python
-completion = client.beta.chat.completions.parse(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": news_text}],
-    response_format=NewsExtraction,
-)
-result = completion.choices[0].message.parsed  # NewsExtraction 객체
-print(result.company)  # 자동 완성 가능
-print(result.revenue)  # 타입 안전성 보장
-```
-
-> **그래서 무엇이 달라지는가?** Structured Output 없으면 LLM이 자유로운 문장을 생성하고, 이를 손으로 파싱해야 한다. 가끔 형식이 깨져 프로그램이 크래시한다. Structured Output 있으면 항상 유효한 JSON이 반환되고, 즉시 프로그램에서 쓸 수 있다. Pydantic의 **자동 검증** 기능은 타입 오류를 조기에 감지한다.
-
-**실제 동작 예시**:
-
-```
-입력 텍스트:
-"삼성전자는 2024년 3분기에 매출 70조 원을 기록했으며,
-전년 동기 대비 15% 성장했다."
-
-Structured Output (자동 생성):
-{
-  "company": "삼성전자",
-  "period": "2024년 3분기",
-  "revenue": "70조 원",
-  "growth_rate": "15%"
-}
-
-Python에서 접근:
-result.company  # "삼성전자" (str, 자동완성 가능)
-result.growth_rate  # "15%" (str)
-
-데이터베이스에 저장:
-db.insert(result.dict())  # 자동 직렬화
-```
-
-##### Function Calling: LLM에 팔다리를 달아주다
-
-**직관적 이해**: LLM은 "두뇌"는 뛰어나지만 "팔다리"가 없다. "오늘 서울 날씨는?"이라고 물으면:
-
-- ❌ "모르겠습니다"
-- ❌ 학습 데이터의 날씨를 지어낸다 (할루시네이션)
-
-**Function Calling**은 LLM에게 **팔다리(외부 도구)를 달아주는 기술**이다. 날씨 API, 검색 엔진, 데이터베이스 등을 "도구"로 정의하면, LLM이 필요할 때 이 도구를 호출하여 **실시간 정보**를 가져온다.
-
-**Function Calling 4단계 흐름**:
-
-```mermaid
-sequenceDiagram
-    participant U as 사용자
-    participant A as 앱 (Python)
-    participant L as LLM (API)
-    participant T as 외부 도구<br/>(날씨 API)
-
-    U->>A: "서울 날씨 알려줘"
-    Note over A: 1단계: 도구 정의와 함께 요청 전송
-    A->>L: messages + tools 정의
-    Note over L: 2단계: LLM이 도구 선택
-    L-->>A: tool_calls: get_weather(location="서울")
-    Note over A: 3단계: 실제로 도구 실행
-    A->>T: get_weather("서울")
-    T-->>A: {"temp": 3, "condition": "맑음"}
-    Note over A: 4단계: 결과를 LLM에 다시 전달
-    A->>L: tool_result + 원래 대화
-    L-->>A: "서울은 현재 3°C, 맑음입니다."
-    A->>U: 최종 응답 표시
-```
-
-**그림 6.2** Function Calling 4단계 흐름
-
-각 단계를 살펴보자:
-
-**1단계**: 사용자 메시지와 함께 사용 가능한 **도구 목록을 JSON으로 정의**하여 전송한다.
-
-```python
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "get_weather",
-        "description": "지정된 도시의 현재 날씨를 조회합니다",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "도시명 (예: 서울, 부산)"
-                },
-                "unit": {
-                    "type": "string",
-                    "enum": ["celsius", "fahrenheit"],
-                    "description": "온도 단위"
-                },
-            },
-            "required": ["location"],
-        },
-    },
-}]
-
-# API 호출
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "서울 날씨는?"}],
-    tools=tools,
-    tool_choice="auto",  # LLM이 자동으로 도구 선택
-)
-```
-
-**2단계**: LLM이 사용자 요청을 분석하고, **"이 함수를 이 인자로 호출해달라"는 요청**을 반환한다. LLM은 함수를 직접 실행하지 않는다.
-
-```python
-# LLM의 응답
-tool_calls = response.choices[0].message.tool_calls
-for tool_call in tool_calls:
-    print(f"함수명: {tool_call.function.name}")
-    print(f"인자: {tool_call.function.arguments}")
-    # 출력:
-    # 함수명: get_weather
-    # 인자: {"location": "서울", "unit": "celsius"}
-```
-
-**3단계**: 애플리케이션이 로컬에서 해당 함수를 **실제로 실행**한다.
-
-```python
-import json
-
-def get_weather(location: str, unit: str = "celsius") -> dict:
-    """실제 도구 구현 (날씨 API 호출)"""
-    # 실제로는 OpenWeatherMap 등의 API를 호출
-    weather_data = {
-        "서울": {"celsius": 3, "fahrenheit": 37},
-        "부산": {"celsius": 8, "fahrenheit": 46},
-    }
-    if location in weather_data:
-        return {
-            "location": location,
-            "temperature": weather_data[location][unit],
-            "condition": "맑음"
-        }
-    return {"error": f"{location}의 날씨를 찾을 수 없습니다"}
-
-# 3단계 실행: tool_call에서 인자 추출하고 함수 호출
-tool_call = response.choices[0].message.tool_calls[0]
-tool_input = json.loads(tool_call.function.arguments)
-result = get_weather(**tool_input)
-print(result)
-# 출력: {'location': '서울', 'temperature': 3, 'condition': '맑음'}
-```
-
-**4단계**: 실행 결과를 LLM에게 다시 전달하면, LLM이 자연어로 **최종 응답을 생성**한다.
-
-```python
-# 4단계: 결과를 메시지에 추가
-messages = [
-    {"role": "user", "content": "서울 날씨는?"},
-    response.choices[0].message,  # LLM의 tool_calls 메시지
-    {
-        "role": "tool",
-        "tool_call_id": tool_call.id,
-        "content": json.dumps(result),  # 함수 실행 결과
-    }
-]
-
-# 최종 응답 생성
-final_response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=messages,
-)
-print(final_response.choices[0].message.content)
-# 출력: "서울은 현재 3°C이며 맑습니다."
-```
-
-> **쉽게 말해서**: 당신(LLM)이 요리를 지시하면, 요리사(함수)가 그대로 만든다. 당신은 "달걀을 깨줘"라고 말하면, 요리사가 실제로 깬다. 당신이 직접 깨는 게 아니다.
-
-> **그래서 무엇이 달라지는가?** Function Calling 없으면 사용자가 "서울 날씨"라고 물어도 LLM이 학습 데이터 기반의 (오래되고 부정확한) 답변을 한다. Function Calling 있으면 LLM이 실시간 날씨 API를 호출하여 최신 정보를 제공한다. 이것이 AI Agent의 기초가 되는 기술이다.
-
-> **라이브 코딩 시연**: Function Calling 날씨 조회 예제를 라이브로 시연한다. 도구를 정의하고, LLM이 도구를 선택하며, 결과를 받아 자연어로 응답하는 전 과정을 보여준다. 학생들이 "LLM은 함수를 직접 실행하지 않고, 호출 요청만 한다"는 핵심을 이해하도록 강조한다.
-
-Function Calling이 중요한 이유는 이것이 **AI Agent의 기초**이기 때문이다. 12주차에서 배울 AI Agent는 Function Calling을 확장하여 여러 도구를 자율적으로 조합하는 시스템이다.
-
-_전체 코드는 practice/chapter6/code/6-3-function-calling.py 참고_
-
----
-
-#### 6.4 LLM 평가 기초
-
-##### 자동 평가 지표
-
-LLM 출력은 어떻게 평가할까? 전통적인 분류 문제라면 정확도로 충분하지만, 자유 형식 텍스트 생성에는 **다양한 평가 지표**가 필요하다.
-
-**Perplexity(혼란도)**는 언어 모델이 다음 토큰을 얼마나 잘 예측하는지 측정한다. Perplexity가 낮을수록 모델이 텍스트를 잘 예측한다는 의미이다. PPL=1이면 완벽한 예측, PPL=50이면 매 토큰마다 50개 중 고르는 수준의 불확실성이다. 다만, API 기반 모델에서는 확률값이 제공되지 않아 직접 계산이 어렵다.
-
-**BLEU(Bilingual Evaluation Understudy)**는 기계 번역의 표준 지표로, 생성된 텍스트와 정답 텍스트의 **n-gram 일치도**를 측정한다. 0~1 범위이며 높을수록 좋다. **정밀도(Precision)** 기반이므로 "정답에 있는 단어를 얼마나 생성했는가"를 본다.
-
-**ROUGE(Recall-Oriented Understudy for Gisting Evaluation)**는 텍스트 요약의 표준 지표이다. BLEU와 달리 **재현율(Recall)** 기반으로, "정답의 내용이 생성 결과에 얼마나 포함되었는가"를 측정한다.
-
-**표 6.6** 자동 평가 지표 비교
-
-| 지표       | 측정 방식     | 범위 |  최적값  | 적용 분야   |
-| ---------- | ------------- | ---- | :------: | ----------- |
-| Perplexity | 예측 불확실성 | 1~∞  | 낮을수록 | 언어 모델링 |
-| BLEU       | n-gram 정밀도 | 0~1  | 높을수록 | 기계 번역   |
-| ROUGE      | n-gram 재현율 | 0~1  | 높을수록 | 텍스트 요약 |
-
-##### LLM-as-a-Judge 패턴
-
-자동 지표만으로는 **유창성, 유용성, 안전성** 같은 질적 측면을 평가하기 어렵다. 사람이 평가하면 정확하지만, 비용이 크고 느리다. 이 간극을 메우는 것이 **LLM-as-a-Judge** 패턴이다.
-
-**직관적 이해**: 학생의 에세이를 다른 교수에게 채점을 맡기는 것과 같다. GPT-4o에게 "이 텍스트를 정확도, 완전성, 명료성 기준으로 10점 만점에 채점하고 근거를 설명해달라"고 요청한다.
-
-```python
-# LLM-as-a-Judge 구현
-evaluation_prompt = """
-당신은 NLP 전문가입니다. 다음 텍스트를 평가하세요.
-
-평가 대상:
-{text}
-
-평가 기준:
-1. 정확도 (사실과 일치하는가?)
-2. 완전성 (필요한 모든 정보가 포함되었는가?)
-3. 명료성 (이해하기 쉬운가?)
-
-각 항목을 10점 만점에 채점하고, 각각 1~2문장의 근거를 제시하세요.
-
-응답 형식:
-정확도: N/10
-이유: [근거]
-
-완전성: N/10
-이유: [근거]
-
-명료성: N/10
-이유: [근거]
-
-종합점수: N/10
-"""
-
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": evaluation_prompt}],
-)
-print(response.choices[0].message.content)
-```
-
-**실제 평가 결과**:
-
-```
-평가 대상: "Python은 1991년에 귀도 반 로섬이 만든 프로그래밍 언어입니다.
-           인터프리터 방식으로 동작하며, 간결한 문법 덕분에 초보자에게 적합합니다."
-
-LLM-as-a-Judge 결과:
-  정확도:   9/10
-  이유: 사실 관계가 정확합니다. 다만 "1991년" 대신 "1989년 공개, 1991년 첫 배포"로
-        더 정확할 수 있습니다.
-
-  완전성:   7/10
-  이유: 기본 정보는 있지만, Python의 주요 특징(동적 타이핑, 풍부한 라이브러리,
-        높은 생산성)을 추가하면 더 완성도 높은 설명이 될 것입니다.
-
-  명료성:   9/10
-  이유: 문장이 명확하고 이해하기 쉽습니다. 전문 용어도 최소화되어 초보자도 이해할 수 있습니다.
-
-  종합점수: 8.3/10
-```
-
-**LLM-as-a-Judge의 장점**: **평가 기준을 자연어로 정의**할 수 있다. "초등학생 눈높이에 맞는가?", "기술적으로 정확한가?" 같은 맞춤형 기준을 프롬프트에 포함하면 된다.
-
-다만 주의할 점도 있다:
-
-1. **자기 편향(Self-bias)**: 같은 모델의 출력에 높은 점수를 주는 경향
-2. **위치 편향(Position bias)**: 여러 답변 중 첫 번째에 높은 점수를 주는 경향
-3. **장문 편향(Verbosity bias)**: 더 긴 답변에 높은 점수를 주는 경향
-
-이러한 편향을 완화하기 위해 **평가 대상의 순서를 섞거나**, **서로 다른 모델(GPT-4o, Claude)을 교차 평가자로 사용**한다.
-
-##### 할루시네이션(Hallucination) 탐지
-
-LLM의 가장 위험한 문제 중 하나가 **할루시네이션**이다. 모델이 **사실이 아닌 정보를 그럴듯하게 생성**하는 현상이다.
-
-- 존재하지 않는 논문을 인용
-- 실제와 다른 통계를 제시
-- 없는 사람의 명언 만들기
-
-**할루시네이션 탐지 방법**:
-
-1. **교차 검증**: 같은 질문을 다른 모델에게 물어 답변을 비교한다
-2. **근거 요청**: CoT 패턴으로 답변의 근거를 명시하게 하면, 근거가 부실하면 할루시네이션을 의심할 수 있다
-3. **RAG 연동**: 11주차에서 배울 RAG 시스템으로 외부 지식을 참조하게 하면 할루시네이션을 크게 줄일 수 있다
-
-> **그래서 무엇이 달라지는가?** 할루시네이션 탐지 없이 LLM을 신뢰하면 거짓 정보가 전파될 수 있다. 하지만 위의 세 기법을 조합하면 할루시네이션을 상당히 줄일 수 있다.
-
----
-
-### 라이브 코딩 시연
-
-> **라이브 코딩 시연**: OpenAI API로 감성 분석을 구현하고, Function Calling으로 외부 도구를 연동한다. Zero-shot vs Few-shot vs CoT의 성능 차이를 실시간으로 비교한다.
-
-**시연 목표**:
-
-- API 호출의 기본 구조 이해
-- 프롬프팅 기법별 성능 비교
-- Function Calling의 4단계 흐름 실제 경험
-- Structured Output으로 안정적인 데이터 추출
-
-**[단계 1] 기본 API 호출 설정**
-
-```python
 from openai import OpenAI
-from dotenv import load_dotenv
 
 load_dotenv()
 client = OpenAI()
 
-# 테스트 데이터
-reviews = [
-    "이 식당은 정말 최고예요! 음식도 맛있고 분위기도 좋습니다.",
-    "서빙이 너무 늦어서 별로 좋지 않았습니다.",
-    "가격이 좀 비싼 편이지만, 맛은 나쁘지 않네요.",
-]
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "user", "content": "자연어처리를 한 문장으로 설명해줘."}
+    ],
+)
 
-print("=== 프롬프팅 기법별 감성 분석 비교 ===\n")
+print(response.choices[0].message.content)
 ```
 
-**[단계 2] Zero-shot 프롬프팅**
+이 코드에서 초보자가 이해해야 할 부분은 네 가지이다.
+
+| 코드 요소 | 의미 |
+|---|---|
+| `OpenAI()` | API를 호출할 클라이언트를 만든다 |
+| `model` | 사용할 모델을 지정한다 |
+| `messages` | 모델에게 보낼 대화 내용이다 |
+| `response.choices[0].message.content` | 모델이 생성한 답변 텍스트이다 |
+
+이 회차에서는 여러 API 제공자의 세부 차이를 비교하지 않는다. 중요한 것은 모든 LLM API가 "메시지를 보내고, 답변을 받는 구조"를 따른다는 점이다.
+
+---
+
+## 6.2 API Key와 토큰
+
+### API Key
+
+API Key는 API 사용 권한을 확인하는 비밀번호와 비슷한 값이다. API 제공자는 이 키를 보고 누가 요청을 보냈는지, 사용량이 얼마나 되는지 확인한다.
+
+API Key는 절대 코드에 직접 적지 않는다. 특히 GitHub에 공개 저장소로 올리면 다른 사람이 그 키를 사용하여 비용을 발생시킬 수 있다.
+
+API Key 관리 원칙은 세 가지이다.
+
+1. API Key는 비밀번호처럼 관리한다.
+2. Python 코드에 직접 쓰지 않는다.
+3. `.env` 파일이나 환경변수로 관리한다.
+
+`.env` 파일 예시는 다음과 같다.
+
+```text
+OPENAI_API_KEY=sk-...
+```
+
+Python 코드에서는 다음처럼 불러온다.
 
 ```python
-print("1️⃣ Zero-shot 프롬프팅\n")
+from dotenv import load_dotenv
+from openai import OpenAI
 
-for i, review in enumerate(reviews, 1):
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "user",
-                "content": f"다음 리뷰의 감성을 '긍정', '중립', '부정' 중 하나로 분류하세요.\n\n리뷰: {review}"
-            }
-        ],
-        temperature=0,  # 결정론적 출력
-    )
-    print(f"리뷰 {i}: {response.choices[0].message.content}")
-    print(f"입력 토큰: {response.usage.prompt_tokens}")
-    print(f"출력 토큰: {response.usage.completion_tokens}\n")
+load_dotenv()
+client = OpenAI()
 ```
 
-출력 예시:
+`.env` 파일은 Git에 올리지 않는다. 이를 위해 `.gitignore`에 `.env`가 포함되어 있어야 한다.
 
-```
-리뷰 1: 긍정
-입력 토큰: 35
-출력 토큰: 2
+### 토큰
 
-리뷰 2: 부정
-입력 토큰: 35
-출력 토큰: 2
+토큰(Token)은 LLM이 텍스트를 읽고 생성할 때 사용하는 작은 단위이다. 토큰은 단어와 완전히 같지 않다. 어떤 단어는 하나의 토큰이 될 수 있고, 어떤 단어는 여러 토큰으로 나뉠 수 있다.
 
-리뷰 3: 중립
-입력 토큰: 36
-출력 토큰: 2
+초보자 단계에서는 토큰을 "모델이 문장을 잘게 나누어 읽는 조각"으로 이해하면 충분하다.
+
+예를 들어 다음 문장은 모델 내부에서 여러 토큰으로 나뉜다.
+
+```text
+자연어처리가 무엇인가요?
 ```
 
-**[단계 3] Few-shot + CoT 프롬프팅**
+중요한 점은 입력과 출력 모두 토큰을 사용한다는 것이다.
+
+```text
+입력 토큰: 사용자가 보낸 질문이나 문서
+출력 토큰: 모델이 생성한 답변
+총 사용량: 입력 토큰 + 출력 토큰
+```
+
+API 비용은 대체로 토큰 사용량에 따라 증가한다. 긴 문서를 넣거나 긴 답변을 요구하면 더 많은 토큰을 사용한다. 따라서 실무에서는 필요한 내용만 입력하고, 출력 길이도 목적에 맞게 제한한다.
+
+토큰 개념은 여기까지만 이해해도 충분하다. BPE, WordPiece, SentencePiece 같은 세부 토큰화 방식은 이후 Transformer와 토크나이저를 다룰 때 다시 본다.
+
+---
+
+## 6.3 프롬프트 엔지니어링
+
+### 프롬프트란 무엇인가
+
+프롬프트(Prompt)는 LLM에게 보내는 지시문이다. 질문 한 문장일 수도 있고, 역할, 작업, 입력 데이터, 출력 형식이 포함된 긴 지시문일 수도 있다.
+
+프롬프트 엔지니어링은 LLM이 원하는 방식으로 답하도록 지시문을 설계하는 방법이다. 같은 기사라도 프롬프트를 어떻게 쓰느냐에 따라 답변의 길이, 형식, 구체성이 달라진다.
+
+### 좋은 프롬프트의 기본 원칙
+
+초보자 단계에서는 네 가지 원칙만 기억하면 된다.
+
+| 원칙 | 설명 | 예시 |
+|---|---|---|
+| 역할 지정 | 어떤 관점에서 답할지 알려준다 | "너는 뉴스 분석가이다." |
+| 작업 명확화 | 수행할 일을 구체적으로 쓴다 | "기사를 긍정, 중립, 부정 중 하나로 분류하라." |
+| 출력 형식 지정 | 답변 형식을 미리 정한다 | "감성: / 이유:" |
+| 제약 조건 제시 | 길이, 말투, 금지사항을 알려준다 | "이유는 한 문장으로 작성하라." |
+
+프롬프트는 단순한 질문이 아니라 작업 지시서에 가깝다. 모델이 무엇을 해야 하는지, 어떤 형식으로 답해야 하는지 명확하게 알려줄수록 결과가 안정적이다.
+
+### 프롬프트에서 에이전틱 엔지니어링으로
+
+프롬프트 엔지니어링은 출발점이다. 실제 업무에서는 한 번의 질문보다 긴 작업, 여러 파일, 외부 도구, 결과 검토가 함께 필요하다. 이때는 프롬프트를 넘어 에이전틱 엔지니어링 관점으로 확장한다.
+
+에이전틱 엔지니어링은 AI에게 단순히 답변을 요청하는 것이 아니라, 역할을 맡기고, 필요한 맥락을 주고, 도구를 연결하고, 사람이 결과를 감독하는 방식이다. 초보자 단계에서는 다음 다섯 개념만 기억하면 충분하다.
+
+| 개념 | 간단한 의미 | 프롬프트에 반영하는 방법 |
+|---|---|---|
+| Agent | 작업을 맡은 AI | "너는 뉴스 분석가이다." |
+| Context | 판단에 필요한 자료 | "아래 기사와 분류 기준을 참고하라." |
+| Tool | 계산, 검색, 파일 처리 같은 외부 기능 | "필요하면 제공된 함수 결과를 사용하라." |
+| Skill | 반복 가능한 작업 절차 | "다음 순서로 분석하라: 요약 → 감성 → 이유." |
+| Planning | 작업 순서와 인간 검토 | "먼저 기준을 확인하고, 마지막에 결과를 표로 정리하라." |
+
+한 문장으로 정리하면, 좋은 프롬프트는 질문을 잘 쓰는 데서 끝나지 않고 "역할, 맥락, 도구, 절차, 검토 방식"을 함께 설계하는 방향으로 발전한다.
+
+### 프롬프트 비교
+
+불명확한 프롬프트:
+
+```text
+이 기사 분석해줘.
+```
+
+개선한 프롬프트:
+
+```text
+너는 뉴스 분석가이다.
+아래 기사를 긍정, 중립, 부정 중 하나로 분류하라.
+이유는 한 문장으로 작성하라.
+
+기사:
+삼성전자가 반도체 수요 회복에 힘입어 올해 영업이익이 증가했다고 발표했다.
+
+출력 형식:
+감성:
+이유:
+```
+
+두 프롬프트는 같은 기사에 대한 요청이지만, 두 번째 프롬프트가 더 안정적인 결과를 만든다. 역할, 작업, 출력 형식, 길이 조건이 들어 있기 때문이다.
+
+에이전틱 관점으로 조금 더 보강하면 다음처럼 쓸 수 있다.
+
+```text
+너는 뉴스 분석가이다.
+분류 기준은 다음과 같다.
+- 긍정: 실적 개선, 성장, 투자 확대처럼 좋은 변화가 중심인 기사
+- 부정: 손실, 감소, 위기, 지연처럼 나쁜 변화가 중심인 기사
+- 중립: 긍정과 부정이 섞였거나 단순 발표에 가까운 기사
+
+아래 기사를 읽고 다음 순서로 처리하라.
+1. 핵심 사건을 한 문장으로 요약한다.
+2. 감성을 긍정, 중립, 부정 중 하나로 분류한다.
+3. 이유를 한 문장으로 쓴다.
+
+기사:
+삼성전자가 반도체 수요 회복에 힘입어 올해 영업이익이 증가했다고 발표했다.
+
+출력 형식:
+요약:
+감성:
+이유:
+```
+
+이 예시는 역할(뉴스 분석가), 맥락(분류 기준), 절차(요약 → 분류 → 이유), 출력 형식이 함께 들어간다. 아직 복잡한 에이전트는 아니지만, 단순 질문보다 실제 업무 지시에 가깝다.
+
+### 간단한 실습 예시
+
+다음 코드는 기사 하나를 감성 분류하도록 요청한다.
 
 ```python
-print("\n2️⃣ Few-shot + CoT 프롬프팅\n")
+article = "삼성전자가 반도체 수요 회복에 힘입어 올해 영업이익이 증가했다고 발표했다."
 
-few_shot_cot_prompt = """다음 예시를 참고하여 리뷰의 감성을 단계별로 분석하세요.
+prompt = f"""
+너는 뉴스 분석가이다.
+아래 기사를 긍정, 중립, 부정 중 하나로 분류하라.
+이유는 한 문장으로 작성하라.
 
-예시 1:
-리뷰: "음식이 맛있고 서비스가 친절했어요"
-분석:
-  1. 긍정적 단어: "맛있고", "친절했어요"
-  2. 부정적 단어: 없음
-  3. 결론: 긍정
+기사:
+{article}
 
-예시 2:
-리뷰: "음식은 맛있지만 가격이 너무 비쌌어요"
-분석:
-  1. 긍정적 단어: "맛있지만"
-  2. 부정적 단어: "너무 비쌌어요"
-  3. 결론: 중립 (긍정과 부정이 섞여있음)
+출력 형식:
+감성:
+이유:
+"""
 
-이제 다음 리뷰를 같은 방식으로 분석하세요:
-리뷰: {review}
-분석:"""
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+)
 
-for i, review in enumerate(reviews, 1):
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "user",
-                "content": few_shot_cot_prompt.format(review=review)
-            }
-        ],
-        temperature=0,
-    )
-    print(f"리뷰 {i}:\n{response.choices[0].message.content}")
-    print(f"입력 토큰: {response.usage.prompt_tokens}")
-    print(f"출력 토큰: {response.usage.completion_tokens}\n")
+print(response.choices[0].message.content)
 ```
 
-**[단계 4] 토큰 사용량과 비용 비교**
+이 실습의 목표는 높은 정확도를 경쟁하는 것이 아니다. 목표는 프롬프트가 출력 형식을 바꾸고, 결과를 더 읽기 쉽게 만든다는 점을 확인하는 것이다.
+
+---
+
+## 6.4 Pydantic과 구조화 출력
+
+### 왜 구조화 출력이 필요한가
+
+LLM의 답변은 사람이 읽기에는 자연스럽지만, 프로그램이 처리하기에는 불편할 수 있다.
+
+예를 들어 다음 답변은 사람이 이해하기 쉽다.
+
+```text
+이 기사는 긍정적인 내용입니다. 이유는 영업이익이 증가했기 때문입니다.
+```
+
+그러나 프로그램에서 감성만 따로 저장하거나 이유만 따로 표에 넣으려면 정해진 구조가 필요하다.
+
+```json
+{
+  "sentiment": "긍정",
+  "reason": "영업이익이 증가했기 때문이다."
+}
+```
+
+이처럼 정해진 필드와 형식에 맞춘 출력을 구조화 출력(structured output)이라고 한다.
+
+### Pydantic이 하는 일
+
+Pydantic은 Python에서 데이터의 형식을 정의하고 검사하는 라이브러리이다. LLM 응답을 프로그램에서 다루려면 "어떤 필드가 있어야 하는지", "각 필드가 어떤 타입이어야 하는지"를 정해야 한다. Pydantic은 이 역할을 한다.
+
+초보자 단계에서는 Pydantic을 "LLM의 답변을 정해진 양식에 맞게 받기 위한 검사 도구"로 이해하면 된다.
+
+간단한 예시는 다음과 같다.
 
 ```python
-print("\n💰 토큰 사용량 및 비용 분석\n")
+from pydantic import BaseModel
 
-# Zero-shot 통계
-zero_shot_input_total = 35 * 3 + 1  # 대략
-zero_shot_output_total = 2 * 3
-
-# Few-shot + CoT 통계
-cot_input_total = 200 * 3  # 대략 (프롬프트가 훨씬 길다)
-cot_output_total = 50 * 3  # CoT는 더 긴 출력
-
-print(f"Zero-shot 대비 Few-shot + CoT의 토큰 증가율:")
-print(f"  입력: {cot_input_total / zero_shot_input_total:.1f}배")
-print(f"  총 토큰: {(cot_input_total + cot_output_total) / (zero_shot_input_total + zero_shot_output_total):.1f}배")
-
-gpt4o_input_price = 2.50 / 1_000_000  # $ per token
-gpt4o_output_price = 10.00 / 1_000_000
-
-zero_shot_cost = (zero_shot_input_total * gpt4o_input_price +
-                  zero_shot_output_total * gpt4o_output_price) * 1200  # 원화
-cot_cost = (cot_input_total * gpt4o_input_price +
-            cot_output_total * gpt4o_output_price) * 1200
-
-print(f"\n비용 추정 (GPT-4o 기준):")
-print(f"  Zero-shot: {zero_shot_cost:.2f}원")
-print(f"  Few-shot + CoT: {cot_cost:.2f}원")
-print(f"  비율: {cot_cost / zero_shot_cost:.2f}배")
+class NewsAnalysis(BaseModel):
+    sentiment: str
+    reason: str
 ```
 
----
+이 코드는 뉴스 분석 결과에 `sentiment`와 `reason`이라는 두 필드가 있어야 한다고 정의한다. 두 필드는 모두 문자열이다.
 
-### 핵심 정리 + B회차 과제 스펙
+### Pydantic 활용 예시
 
-#### 이 회차의 핵심 내용
+다음 예시는 LLM에게 JSON 형식으로 답하라고 요청한 뒤, 그 결과를 Pydantic으로 검사하는 코드이다.
 
-- **LLM API**는 거대 모델을 인터넷으로 빌려 쓰는 서비스이다. GPU 없이 API 한 줄로 GPT-4o, Claude 등을 활용할 수 있으며, 토큰 단위로 과금된다.
+```python
+from pydantic import BaseModel
 
-- **프롬프트 엔지니어링**은 LLM에게 "일 잘 시키는 기술"이다. Zero-shot → Few-shot → CoT → Self-Consistency로 발전하며, 각 기법은 더 많은 토큰을 소비하지만 더 높은 성능을 낸다.
+class NewsAnalysis(BaseModel):
+    sentiment: str
+    reason: str
 
-- **System Prompt와 Role Prompting**으로 모델의 인격과 전문성을 설정하면 출력 품질이 크게 향상된다. 역할을 명확히 하면 대상 청중에 맞는 수준과 스타일의 답변이 나온다.
+article = "삼성전자가 반도체 수요 회복에 힘입어 올해 영업이익이 증가했다고 발표했다."
 
-- **Structured Output(Pydantic)**은 LLM 출력을 강제로 특정 형식(JSON)으로 변환하여, 프로그래밍에서 안정적으로 활용할 수 있게 한다. 파싱 오류 없이 즉시 데이터베이스에 저장할 수 있다.
+prompt = f"""
+다음 기사를 긍정, 중립, 부정 중 하나로 분류하라.
+반드시 JSON 형식으로만 답하라.
 
-- **Function Calling**은 LLM에 외부 도구(API, DB, 검색)를 연동하는 기술이다. LLM은 도구를 직접 실행하지 않고 **호출 요청만 반환**한다. 이것이 AI Agent의 기초이다.
+기사:
+{article}
 
-- **LLM 평가**는 자동 지표(BLEU, ROUGE), LLM-as-a-Judge, 사람 평가를 종합한다. 할루시네이션은 교차 검증, CoT, RAG로 완화할 수 있다.
+JSON 형식:
+{{
+  "sentiment": "긍정 또는 중립 또는 부정",
+  "reason": "분류 이유 한 문장"
+}}
+"""
 
-#### B회차 과제 스펙
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+    temperature=0,
+)
 
-**B회차 (90분) — 실습 + 토론**: 도메인 특화 텍스트 분석 시스템 구축
+raw_text = response.choices[0].message.content
+analysis = NewsAnalysis.model_validate_json(raw_text)
 
-**과제 목표**:
+print(analysis.sentiment)
+print(analysis.reason)
+```
 
-- OpenAI/Anthropic API를 호출하여 실제 텍스트를 분석한다
-- Few-shot + CoT로 도메인 특화 분류를 구현한다
-- Pydantic으로 구조화된 정보 추출을 한다
-- LLM-as-a-Judge로 결과를 자동 평가한다
+이 코드에서 중요한 부분은 마지막 두 줄이다. `model_validate_json()`은 모델의 답변이 `NewsAnalysis` 구조에 맞는지 확인한다. 구조가 맞으면 `analysis.sentiment`, `analysis.reason`처럼 Python 객체의 속성으로 결과를 사용할 수 있다.
 
-**과제 구성** (3단계, 30~40분 완결):
+만약 모델이 JSON이 아닌 일반 문장으로 답하거나, `sentiment` 필드를 빠뜨리면 Pydantic은 오류를 발생시킨다. 이 오류는 나쁜 것이 아니라, 프로그램이 잘못된 형식의 답변을 그대로 사용하지 않도록 막아 주는 안전장치이다.
 
-- **체크포인트 1 (10분)**: 여러 프롬프팅 기법(Zero-shot, Few-shot, CoT) 성능 비교
-- **체크포인트 2 (15분)**: Pydantic으로 구조화된 정보 추출
-- **체크포인트 3 (10분)**: LLM-as-a-Judge로 자동 평가 및 결과 분석
+### Pydantic을 쓰면 좋은 점
 
-**제출 형식**:
-
-- 완성된 코드 파일 (`practice/chapter6/code/6-4-실습.py`)
-- 성능 비교 리포트 (프롬프팅 기법별 정확도, 토큰 사용량)
-- 평가 결과 분석 (각 기법의 장단점, 실무 적용 방안)
-
-**Copilot 활용 가이드**:
-
-- 기본: "OpenAI API로 감성 분석을 해줄 수 있어?"
-- 심화: "이 감성 분석에 Few-shot 예시를 추가하고, CoT를 써서 정확도를 올려볼까?"
-- 검증: "이 결과를 LLM-as-a-Judge로 평가하는 코드를 만들어줄 수 있어?"
-
----
-
-### Exit ticket
-
-**문제 (1문항)**:
-
-다음 상황에서 가장 적합한 프롬프팅 기법은?
-
-"당신의 회사는 의료 보험 청구 데이터를 분석해야 합니다. 매우 정확한 분류가 필요하고, 모델이 '왜 이렇게 분류했는가'를 설명할 수 있어야 합니다."
-
-① Zero-shot Prompting
-② Few-shot Prompting
-③ Chain-of-Thought (CoT) + 의료 도메인 예시
-④ Self-Consistency (CoT 다중 샘플링)
-
-정답: **④** (또는 **③**)
-
-**설명**: 의료 데이터는 정확성이 최우선이므로 CoT로 추론 과정을 명시할 필요가 있다. 추가로 Self-Consistency로 여러 추론 경로를 비교하면 신뢰성이 더욱 높아진다. Few-shot에는 의료 전문 용어와 판단 기준을 담은 도메인 예시를 포함해야 한다. 비용이 높지만, 의료 분야에서는 "빠름"보다 "정확함"이 중요하다.
+| 문제 | Pydantic 사용 후 |
+|---|---|
+| 답변 형식이 매번 달라질 수 있다 | 필요한 필드를 명확히 정의할 수 있다 |
+| 감성, 이유, 키워드를 따로 꺼내기 어렵다 | Python 객체의 속성처럼 사용할 수 있다 |
+| 잘못된 형식의 응답을 놓칠 수 있다 | 형식 오류를 확인할 수 있다 |
 
 ---
 
-## 더 알아보기
+## 6.5 Function Calling
 
-이 장의 내용을 더 깊이 학습하려면 다음 자료를 참고하라:
+### Function Calling이 필요한 이유
 
-- Lilian Weng. (2023). Prompt Engineering. _Lil'Log_. https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/
-- OpenAI. API Documentation. https://platform.openai.com/docs
-- Anthropic. API Documentation. https://docs.anthropic.com/
-- Sahoo, P., et al. (2024). A Systematic Survey of Prompt Engineering in Large Language Models. _arXiv_. https://arxiv.org/abs/2402.07927
+LLM은 텍스트를 잘 생성하지만 모든 일을 직접 할 수 있는 것은 아니다. 특히 현재 정보 조회, 계산, 데이터베이스 검색, 파일 읽기처럼 외부 시스템이 필요한 작업은 별도 도구가 필요하다.
+
+예를 들어 사용자가 "서울의 현재 날씨를 알려줘"라고 물었다고 하자. LLM은 날씨 문장을 그럴듯하게 만들 수는 있지만, 지금 이 순간의 실제 날씨를 직접 알지는 못한다. 이때 날씨 API를 호출하는 함수가 필요하다.
+
+Function Calling은 LLM이 필요한 함수를 선택하고, 어떤 인자를 넣어야 하는지 알려주는 방식이다. 실제 함수 실행은 Python 프로그램이 담당한다.
+
+### 기본 흐름
+
+```text
+1. 사용자가 질문한다.
+   "서울의 현재 날씨를 알려줘."
+
+2. LLM이 필요한 도구를 고른다.
+   get_weather(city="서울")
+
+3. 프로그램이 실제 함수를 실행한다.
+
+4. 함수 결과를 LLM에게 다시 전달한다.
+
+5. LLM이 자연어로 최종 답변을 만든다.
+```
+
+### 간단한 함수 예시
+
+```python
+def get_weather(city: str):
+    return f"{city}의 현재 날씨는 맑음입니다."
+```
+
+이 함수가 있다고 할 때, LLM은 사용자 질문을 보고 다음과 같이 판단할 수 있다.
+
+```text
+사용자 질문: 서울 날씨 알려줘.
+필요한 함수: get_weather
+인자: city="서울"
+```
+
+중요한 점은 LLM이 함수를 직접 실행하는 것이 아니라는 점이다. LLM은 어떤 함수를 어떤 인자로 호출해야 하는지 결정한다. 실제 실행은 애플리케이션 코드가 수행한다.
+
+### Function Calling의 활용 예
+
+| 사용자 요청 | 필요한 함수 예시 |
+|---|---|
+| "서울 날씨 알려줘" | `get_weather(city)` |
+| "3년 뒤 원리금 계산해줘" | `calculate_interest(amount, rate, years)` |
+| "내 주문 내역 조회해줘" | `get_order_history(user_id)` |
+| "문서에서 관련 내용을 찾아줘" | `search_documents(query)` |
+
+Function Calling은 이후 Agent와 RAG 시스템으로 이어진다. Agent는 여러 도구 중 무엇을 사용할지 선택하고, 결과를 보고 다음 행동을 이어가는 LLM 시스템이다. RAG는 문서 검색 도구를 사용하여 LLM이 근거 문서를 참고하도록 만드는 방식이다.
 
 ---
 
-## 다음 장 예고
+## 6.6 전체 흐름 연결
 
-6주차는 LLM API와 프롬프팅의 기초를 다룬다. 7주차는 **중간고사**이며, 8주차부터 본격적인 실무 기술을 다룬다. 8주차에서는 대량의 텍스트에서 **숨겨진 주제(토픽)**를 자동으로 발견하는 **토픽 모델링**을 학습한다. LDA부터 BERTopic까지, 비지도 학습으로 텍스트를 분석하는 기법을 익힌다.
+이번 회차의 다섯 개념은 따로 떨어져 있지 않다. 작은 뉴스 분석 앱을 만든다고 생각하면 각 개념의 역할이 분명해진다.
+
+```text
+1. 사용자가 뉴스 기사를 입력한다.
+2. Python 코드가 LLM API에 요청을 보낸다.
+3. 프롬프트가 모델에게 분석 작업과 출력 형식을 지시한다.
+4. 모델은 토큰 단위로 입력을 읽고 답변을 생성한다.
+5. Pydantic은 출력이 정해진 구조에 맞는지 확인한다.
+6. 필요한 경우 Function Calling으로 외부 도구를 호출한다.
+7. 프로그램은 최종 결과를 사용자에게 보여준다.
+```
+
+각 개념의 역할은 다음과 같다.
+
+| 개념 | 역할 |
+|---|---|
+| API | LLM 서버에 요청을 보내고 응답을 받는다 |
+| API Key | API 사용 권한을 확인한다 |
+| Token | 입력과 출력의 길이 및 비용과 관련된다 |
+| Prompt | 모델에게 수행할 작업을 지시한다 |
+| Pydantic | 모델 출력을 정해진 구조로 다룬다 |
+| Function Calling | 모델이 외부 도구를 사용할 수 있게 한다 |
 
 ---
 
-## 참고문헌
+## 핵심 정리
 
-Brown, T. B., et al. (2020). Language Models are Few-Shot Learners. _Advances in Neural Information Processing Systems 33_. https://arxiv.org/abs/2005.14165
+LLM API는 거대한 언어 모델을 프로그램에서 호출하는 방법이다. API Key는 비밀번호처럼 관리해야 하며, 토큰은 모델이 텍스트를 처리하고 비용을 계산하는 기본 단위이다.
 
-Kojima, T., et al. (2022). Large Language Models are Zero-Shot Reasoners. _Advances in Neural Information Processing Systems 35_. https://arxiv.org/abs/2205.11916
+프롬프트 엔지니어링은 모델에게 명확한 작업 지시를 내리는 방법이다. 좋은 프롬프트는 역할, 작업, 출력 형식, 제약 조건을 포함한다.
 
-Wei, J., et al. (2022). Chain-of-Thought Prompting Elicits Reasoning in Large Language Models. _Advances in Neural Information Processing Systems 35_. https://arxiv.org/abs/2201.11903
+Pydantic은 LLM 출력을 정해진 구조로 다루기 위한 도구이다. Function Calling은 LLM이 계산기, 날씨 API, 검색 함수 같은 외부 도구를 사용할 수 있게 하는 방식이다.
 
-Wang, X., et al. (2023). Self-Consistency Improves Chain of Thought Reasoning in Language Models. _International Conference on Learning Representations_. https://arxiv.org/abs/2203.11171
-
-Yao, S., et al. (2023). Tree of Thoughts: Deliberate Problem Solving with Large Language Models. _Advances in Neural Information Processing Systems 36_. https://arxiv.org/abs/2305.10601
-
-Sahoo, P., et al. (2024). A Systematic Survey of Prompt Engineering in Large Language Models: Techniques and Applications. https://arxiv.org/abs/2402.07927
+---
