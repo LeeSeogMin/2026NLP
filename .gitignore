@@ -118,6 +118,7 @@ content/
 schema/
 scripts/
 .claude/
+exam/
 
 # 기타
 requirements.txt
