@@ -1,27 +1,30 @@
 ## 8주차 A회차: 토픽 모델링 원리 + BERTopic
 
-> **미션**: 수업이 끝나면 뉴스 기사 대량 데이터에서 숨겨진 주제를 자동 추출하고, BERTopic의 핵심 아키텍처(BERT embedding → UMAP → HDBSCAN → c-TF-IDF)를 설명할 수 있다
+> **미션**: 수업이 끝나면 뉴스 기사 대량 데이터에서 숨겨진 주제를 자동 추출하고, BERTopic의 5단계 파이프라인(BERT 임베딩 → UMAP → HDBSCAN → CountVectorizer → c-TF-IDF)을 단계별 직관과 함께 설명할 수 있다
 
 ### 학습목표
 
 이 회차를 마치면 다음을 수행할 수 있다:
 
-1. 토픽 모델링의 개념을 설명하고 LDA와 BERTopic의 핵심 차이를 비교할 수 있다
-2. BERTopic의 4단계 아키텍처(Document Embedding → Dimensionality Reduction → Clustering → Topic Representation)를 단계별로 이해할 수 있다
-3. BERT 사전학습 임베딩이 전통적 TF-IDF와 어떻게 다르며, 왜 주제 추출에 유리한지 설명할 수 있다
-4. UMAP 차원 축소와 HDBSCAN 밀도 기반 클러스터링의 직관을 파악할 수 있다
-5. c-TF-IDF로 각 주제의 핵심 단어를 추출하는 원리를 이해할 수 있다
-6. BERTopic의 시각화(Topic Heatmap, Topic Distribution, Topic Network)를 해석할 수 있다
+1. 토픽 모델링과 군집화의 차이를 설명하고, 임베딩 기반 토픽 모델링 기법의 지형(BERTopic / Top2Vec / LDA2Vec / CTM / ETM)을 비교할 수 있다
+2. LDA(통계 기반)와 BERTopic(임베딩 기반)의 핵심 철학 차이를 한 문장으로 요약할 수 있다
+3. BERTopic의 5단계 파이프라인(임베딩 → UMAP → HDBSCAN → CountVectorizer → c-TF-IDF)과 선택적 6단계(표현 보정)를 직관과 함께 설명할 수 있다
+4. UMAP·HDBSCAN의 주요 파라미터(n_neighbors, n_components, min_cluster_size, min_samples)가 결과에 미치는 영향을 예측할 수 있다
+5. c-TF-IDF가 "전체에서 자주 등장하는 단어"가 아니라 "그 토픽에서만 자주 등장하는 단어"를 어떻게 골라내는지 설명할 수 있다
+6. 토픽 평가지표(C_v, NPMI, UMass, Topic Diversity)의 의미와 해석 기준을 알고, 결과의 품질을 정량적으로 판단할 수 있다
+7. BERTopic의 7가지 시각화 메서드(`visualize_topics`, `visualize_documents`, `visualize_hierarchy`, `visualize_heatmap`, `visualize_barchart`, `visualize_distribution`, `visualize_topics_per_class`)의 용도를 구분하고 결과를 해석할 수 있다
+
+> **B회차 예고**: BERTopic 다듬기(노이즈 처리 `reduce_outliers`, 토픽 병합 `reduce_topics`, Optuna 다목적 튜닝), 동적 토픽·생명 주기 분석, 멀티모달(CLIP) 토픽 모델링은 8주차 B회차에서 본격적으로 다룬다.
 
 ### 수업 타임라인
 
-| 시간        | 내용                                        | Copilot 사용                  |
-| ----------- | ------------------------------------------- | ----------------------------- |
-| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)         | 사용 안 함                    |
-| 00:05~00:55 | 이론 강의 (직관적 비유 → 개념 → 원리)       | 사용 안 함                    |
-| 00:55~01:25 | 라이브 코딩 시연 (BERTopic 파이프라인 전체) | 직접 실습 또는 시연 영상 참고 |
-| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개            |                               |
-| 01:28~01:30 | Exit ticket (1문항)                         |                               |
+| 시간        | 내용                                          | Copilot 사용                  |
+| ----------- | --------------------------------------------- | ----------------------------- |
+| 00:00~00:05 | 오늘의 질문 + 빠른 진단(퀴즈 1문항)           | 사용 안 함                    |
+| 00:05~00:55 | 이론 강의 (직관 → 5단계 → 평가지표)           | 사용 안 함                    |
+| 00:55~01:25 | 라이브 코딩 시연 (BERTopic 파이프라인 + 평가) | 직접 실습 또는 시연 영상 참고 |
+| 01:25~01:28 | 핵심 정리 + B회차 과제 스펙 공개              |                               |
+| 01:28~01:30 | Exit ticket (1문항)                           |                               |
 
 ---
 
@@ -104,10 +107,76 @@
 
 - **뉴스 분석**: 일일 뉴스에서 부상하는 주제 추적
 - **소셜 미디어**: 트위터/인스타그램 대량 게시물에서 트렌드 발견
-- **고객 피드백**: 수천 건의 고객 리뷰에서 주요 불만사항 추출
-- **학술 논문**: 특정 분야의 핵심 주제 변화 추적
+- **고객 피드백(VOC)**: 수천 건의 고객 리뷰에서 "배송 불만", "품질 문제", "가격 만족" 같은 주요 이슈를 자동 추출 → 제품팀·물류팀·CS팀이 우선순위를 다르게 잡을 수 있다
+- **학술 논문**: 특정 분야의 핵심 주제 변화 추적, 신흥 연구 영역 조기 탐지
 - **의료**: 환자 기록에서 주요 증상 패턴 발견
 - **법률**: 판결문에서 판결 영향 요소 분석
+- **정책 모니터링**: 사회적 아젠다 변화를 시간축으로 추적 (B회차 동적 토픽 모델링과 연결)
+
+##### 군집화와 토픽 모델링은 무엇이 다른가?
+
+7주차에서 다룬 **군집화(Clustering)**와 토픽 모델링은 둘 다 비지도학습이지만, 답하려는 질문이 다르다.
+
+- **군집화**: "이 문서는 *어느* 그룹에 속하는가?" → **하나의 라벨**을 부여 (하드 할당)
+- **토픽 모델링**: "이 문서는 *어떤 주제들의 조합*인가?" → **여러 토픽의 비율**을 부여 (소프트 할당)
+
+**표 8.0** 군집화 vs 토픽 모델링
+
+| 구분          | 군집화                          | 토픽 모델링                            |
+| ------------- | ------------------------------- | -------------------------------------- |
+| 할당 방식     | 하드 할당 (문서 → 하나의 군집)  | 소프트 할당 (문서 → 여러 토픽의 혼합)  |
+| 핵심 산출물   | 군집 레이블                     | 토픽-단어 분포, 문서-토픽 분포         |
+| 해석 방식     | 군집 내 문서의 공통점 파악      | 토픽별 키워드로 주제 해석              |
+| 대표 알고리즘 | K-Means, HDBSCAN                | LDA, BERTopic                          |
+
+> **연결고리**: BERTopic은 사실 내부적으로 **HDBSCAN 군집화를 한 뒤 각 군집을 토픽으로 해석**한다. 군집화와 토픽 모델링은 적이 아니라 동료다.
+
+##### 토픽 모델링의 두 패러다임 — 그리고 임베딩 기반 기법들의 지형
+
+토픽 모델링은 크게 두 흐름으로 발전해왔다.
+
+- **전통(통계 기반) — LDA (Blei et al., 2003)**: 단어 빈도(Bag-of-Words)에서 잠재 토픽을 확률적으로 추론. 오랫동안 표준이었으나 문맥·동의어를 다루지 못한다.
+- **현대(임베딩 기반)**: 사전학습 언어모델로 문서를 의미 벡터로 바꾼 뒤, 그 공간에서 토픽을 찾는다. 짧은 텍스트·동음이의어·한국어처럼 문맥 의존이 큰 언어에 강건하다.
+
+임베딩 기반에는 BERTopic 외에도 여러 친척이 있다. 강의에서 BERTopic만 다루지만, 지형도를 알면 논문이나 실무에서 다른 이름을 만났을 때 당황하지 않는다.
+
+**표 8.0a** 임베딩 기반 토픽 모델링 기법 지형
+
+| 기법       | 한 줄 요약                                                                 | 핵심 특징                |
+| ---------- | -------------------------------------------------------------------------- | ------------------------ |
+| **BERTopic** | 문서 임베딩 + UMAP + HDBSCAN + c-TF-IDF                                    | 모듈화, 자동 토픽 수, 동적/멀티모달 지원 |
+| Top2Vec    | 문서·단어 임베딩을 같이 학습하고 밀집 영역을 토픽으로 본다                  | 문서·단어 동시 임베딩    |
+| LDA2Vec    | LDA 토픽 분포 + Word2Vec 임베딩을 결합                                     | LDA의 확률성 + 의미 벡터 |
+| CTM        | 사전학습 언어모델의 문맥 임베딩을 변분 토픽모델에 결합                      | 문맥 임베딩 + 변분 추론  |
+| ETM        | 단어를 임베딩 공간에 두고 토픽도 같은 공간의 벡터로 학습                    | 의미 공간 위의 토픽 벡터 |
+
+> **왜 BERTopic을 쓰는가?** 모듈화(임베딩·차원축소·군집·표현이 모두 교체 가능), 토픽 수 자동 결정, 동적 토픽·멀티모달까지 같은 API로 묶이는 일관성 때문이다 (Grootendorst, 2022).
+
+**표 8.0b** LDA vs BERTopic 한눈에
+
+| 구분          | LDA                       | BERTopic               |
+| ------------- | ------------------------- | ---------------------- |
+| 입력 표현     | Bag-of-Words (단어 빈도)  | 임베딩 (의미 벡터)     |
+| 문맥 이해     | 불가                      | 가능                   |
+| 토픽 수 결정  | 사전 지정 필수            | 자동 결정 (HDBSCAN)    |
+| 짧은 텍스트   | 취약 (통계 부족)          | 강건 (임베딩 활용)     |
+| 동의어 처리   | 불가                      | 가능 (의미적 유사성)   |
+| 동적 토픽     | 별도 확장 필요            | 내장 지원              |
+
+##### AI 시대의 진화 — 토픽 모델링도 함께 바뀐다
+
+**표 8.0c** 토픽 모델링의 AI 시대 진화
+
+| 전통 방식             | AI 시대 진화                       | 개선 효과               |
+| --------------------- | ---------------------------------- | ----------------------- |
+| LDA (단어 빈도 기반)  | BERTopic (임베딩 기반)             | 문맥 이해, 동의어 처리  |
+| 수동 토픽 명명        | LLM 자동 레이블링 (별도 주제)      | 일관성, 확장성          |
+| 정적 토픽 분석        | 동적 토픽 모델링 (B회차 §8.7)      | 시간별 트렌드 추적      |
+| TF-IDF 키워드 추출    | c-TF-IDF + 의미 기반               | 토픽 대표성 향상        |
+| 사전 K 지정           | 자동 토픽 수 결정 (HDBSCAN)        | 분석 효율성             |
+| 텍스트 단독 분석      | 멀티모달(CLIP) 토픽 (B회차 §8.8)   | 텍스트+이미지 통합 해석 |
+
+이번 회차(A)는 **임베딩 기반 BERTopic의 5단계 + 평가지표**까지를 다지는 시간이다. 동적·멀티모달·튜닝 같은 확장은 B회차에서 이어 받는다.
 
 #### 8.2 LDA: 확률론적 토픽 모델링
 
@@ -181,42 +250,46 @@ LDA는 강력하지만 근본적 한계가 있다:
 
 > **쉽게 말해서**: LDA는 수학적으로 정교하지만, 단어를 통계적으로만 처리하므로 단어의 **의미**를 이해하지 못한다.
 
-#### 8.3 BERTopic: 신경망 기반 토픽 모델링
+#### 8.3 BERTopic: 5단계 파이프라인 — 임베딩으로 주제 발견
 
 ##### BERTopic의 핵심 아이디어
 
-**BERTopic**은 2022년 Maarten van den Ende가 제안했으며, LDA의 한계를 현대 딥러닝으로 극복했다.
+**BERTopic**은 **Maarten Grootendorst**가 2022년에 제안한 임베딩 기반 토픽 모델링 기법이다 (Grootendorst, 2022). LDA가 단어 빈도에 의존하는 것과 달리, BERTopic은 **의미적 유사성**을 기반으로 토픽을 발견한다.
 
-**핵심 아이디어**: "사전학습된 언어 모델(BERT)로 문서를 벡터화한 후, 벡터 공간에서 가까운 문서끼리 같은 주제로 클러스터링한다"
+**핵심 아이디어**: "사전학습된 언어 모델(BERT)로 문서를 벡터화한 후, 벡터 공간에서 가까운 문서끼리 같은 주제로 묶고 → 그 묶음을 대표하는 키워드를 뽑는다."
 
 이는 LDA와 철학적으로 완전히 다르다:
 
 - **LDA**: 확률 모델 → 수학 공식으로 주제를 계산
-- **BERTopic**: 거리 기반 클러스터링 → "가까운 것끼리 같은 주제"라는 직관
+- **BERTopic**: 거리 기반 군집화 → "가까운 것끼리 같은 주제"라는 직관
 
 **직관적 이해**: 사람들이 모여 있는 광장을 생각해 보자.
 
 - **LDA의 방식**: "각 사람이 어떤 확률로 각 그룹에 속하는가"를 수학 공식으로 계산
-- **BERTopic의 방식**: "각 사람을 좌표로 표현한 후, 가까이 서 있는 사람들을 같은 그룹으로 묶는다"
+- **BERTopic의 방식**: "각 사람을 좌표로 표현한 후, 가까이 서 있는 사람들을 같은 그룹으로 묶고, 그 그룹이 주로 어떤 옷을 입었는지(키워드)를 찾는다"
 
 BERTopic이 훨씬 직관적이면서도, BERT가 단어의 의미를 이미 이해하고 있으므로 더 정확하다.
 
-##### BERTopic의 4단계 아키텍처
+##### BERTopic의 5단계(+선택 6단계) 파이프라인
 
-BERTopic은 다음 4단계를 순차적으로 수행한다:
+BERTopic은 5개의 모듈화된 단계로 구성되며, **각 단계는 독립적으로 교체 가능**하다(예: 임베딩 모델은 한국어 KoSBERT로, 군집은 K-Means로 바꿔 끼울 수 있다). 토픽 표현을 LLM으로 다듬는 **선택적 6단계**가 추가될 수 있다(LLM 라벨링은 본 회차 범위 밖).
 
 ```mermaid
 flowchart LR
-    A["입력:<br/>문서 모음"] --> B["Stage 1:<br/>Document Embedding<br/>(BERT)"]
-    B --> C["Stage 2:<br/>Dimensionality<br/>Reduction (UMAP)"]
-    C --> D["Stage 3:<br/>Clustering<br/>(HDBSCAN)"]
-    D --> E["Stage 4:<br/>Topic Representation<br/>(c-TF-IDF)"]
-    E --> F["출력:<br/>주제 + 단어들"]
+    A["입력:<br/>문서 모음"] --> B["Step 1:<br/>임베딩<br/>(SBERT)"]
+    B --> C["Step 2:<br/>차원 축소<br/>(UMAP)"]
+    C --> D["Step 3:<br/>군집화<br/>(HDBSCAN)"]
+    D --> E["Step 4:<br/>토큰화<br/>(CountVectorizer)"]
+    E --> F["Step 5:<br/>토픽 표현<br/>(c-TF-IDF)"]
+    F -. 선택 .-> G["Step 6:<br/>표현 보정<br/>(KeyBERT/LLM)"]
+    F --> H["출력:<br/>토픽 + 키워드"]
 ```
 
-**그림 8.1** BERTopic의 4단계 파이프라인
+**그림 8.1** BERTopic의 5단계 파이프라인 (점선은 선택적 6단계)
 
-##### Stage 1: Document Embedding (BERT)
+> **5단계 외우기**: "**임 → 축 → 군 → 토 → 표**" (임베딩 → 축소 → 군집 → 토큰화 → 표현)
+
+##### Step 1: 임베딩 (Sentence-BERT)
 
 **목적**: 각 문서를 의미를 담은 벡터로 변환한다.
 
@@ -238,7 +311,7 @@ embeddings = model.encode(documents)  # (N, 384) 행렬
 
 > **쉽게 말해서**: "뉴스 기사를 384차원 공간의 한 점으로 표현한다"는 뜻이다. 의미가 비슷한 기사들은 공간에서 가까이 위치한다.
 
-##### Stage 2: Dimensionality Reduction (UMAP)
+##### Step 2: 차원 축소 (UMAP)
 
 **문제**: BERT 임베딩은 384차원이다. 384차원 공간에서는 "거리"의 개념이 이상해진다. 이를 **"차원의 저주(Curse of Dimensionality)"**라 한다.
 
@@ -250,21 +323,34 @@ embeddings = model.encode(documents)  # (N, 384) 행렬
 
 **해결책**: 차원을 축소한다.
 
-**UMAP(Uniform Manifold Approximation and Projection)**은 고차원 데이터를 저차원(보통 2D 또는 5D)으로 축소하면서, **거리와 이웃 관계를 최대한 보존**하는 기법이다.
+**UMAP(Uniform Manifold Approximation and Projection)**은 고차원 데이터를 저차원(BERTopic 기본은 5D)으로 축소하면서, **국소 구조와 전역 구조를 모두 보존**하려는 기법이다.
 
 ```python
 from umap import UMAP
 
-umap_model = UMAP(n_components=5, min_dist=0.0, metric='cosine')
+umap_model = UMAP(
+    n_neighbors=15, n_components=5,
+    min_dist=0.0, metric='cosine', random_state=42,
+)
 reduced_embeddings = umap_model.fit_transform(embeddings)
-# (10000, 384) → (10000, 5)
+# (N, 384) → (N, 5)
 ```
 
-**직관적 이해**: 지구본을 평면 지도에 투영하는 것처럼, 384차원 공간을 5차원 또는 2차원 공간으로 "펼친다". 이 과정에서 원래 공간의 인접한 점들이 투영된 공간에서도 인접하도록 한다.
+**직관적 이해**: 지구본을 평면 지도에 투영하는 것처럼, 384차원 공간을 5차원으로 "펼친다". 이 과정에서 원래 공간의 인접한 점들이 투영된 공간에서도 인접하도록 한다.
 
-**그래서 무엇이 달라지는가?** 384차원에서는 "거리"가 의미 있는 개념이 아니었지만, 5차원으로 축소하면 "가까운 문서"와 "먼 문서"를 명확히 구분할 수 있다.
+**표 8.2** UMAP 주요 파라미터
 
-##### Stage 3: Clustering (HDBSCAN)
+| 파라미터       | 의미                       | BERTopic 권장값        | 직관                                                       |
+| -------------- | -------------------------- | ---------------------- | ---------------------------------------------------------- |
+| `n_neighbors`  | 이웃을 몇 명까지 볼지       | 15                     | 작으면 국소 구조 강조, 크면 전역 구조 강조                  |
+| `n_components` | 출력 차원                   | 5                      | 너무 낮으면 정보 손실, 너무 높으면 군집화 부정확            |
+| `min_dist`     | 점들 간 최소 거리           | 0.0                    | 0에 가까울수록 군집이 빽빽하게 뭉친다                       |
+| `metric`       | 거리 측정 방식              | cosine                 | 임베딩(방향)에는 유클리드보다 코사인이 적합                 |
+| `random_state` | 재현성                      | 42                     | 고정해야 같은 결과가 나온다                                 |
+
+> **결과가 흔들린다면?** UMAP은 확률적 알고리즘이다. `random_state`를 고정하지 않으면 실행할 때마다 토픽 번호와 모양이 바뀐다. 강의·실습에서는 항상 42로 고정한다.
+
+##### Step 3: 군집화 (HDBSCAN)
 
 **목적**: 축소된 벡터 공간에서 비슷한 문서들을 같은 주제로 그룹화한다.
 
@@ -275,23 +361,51 @@ reduced_embeddings = umap_model.fit_transform(embeddings)
 HDBSCAN은 비슷하게 작동한다:
 
 1. **밀집 영역 찾기**: 벡터가 많이 모여 있는 영역을 식별
-2. **계층적 클러스터링**: 작은 클러스터들을 합쳐서 더 큰 클러스터로 계층화
-3. **노이즈 처리**: 어느 클러스터에도 속하지 않는 이상치는 -1 레이블로 표시
+2. **계층적 군집화**: 작은 군집을 합쳐 더 큰 군집으로 계층화
+3. **노이즈 처리**: 어느 군집에도 속하지 않는 이상치는 **-1 레이블**로 표시
 
 ```python
 from hdbscan import HDBSCAN
 
-hdbscan_model = HDBSCAN(min_cluster_size=10, metric='euclidean')
+hdbscan_model = HDBSCAN(
+    min_cluster_size=10, min_samples=5,
+    metric='euclidean', cluster_selection_method='eom',
+)
 labels = hdbscan_model.fit_predict(reduced_embeddings)
 # labels: [0, 0, 1, 2, 1, -1, ...]
-# -1은 노이즈(어떤 주제에도 속하지 않음)
+# -1은 노이즈(어떤 주제에도 명확히 속하지 않음)
 ```
 
-**그래서 무엇이 달라지는가?** K-means 같은 기본 클러스터링은 "정확히 K개의 클러스터"를 만들어야 한다(주제 개수를 미리 정해야 한다). HDBSCAN은 데이터 구조 자체에서 자연스러운 클러스터 개수를 찾는다.
+**표 8.3** HDBSCAN 주요 파라미터
+
+| 파라미터                   | 의미                       | 권장값          | 효과                                              |
+| -------------------------- | -------------------------- | --------------- | ------------------------------------------------- |
+| `min_cluster_size`         | 최소 군집 크기              | 10~30           | 크면 적고 큰 토픽, 작으면 많고 작은 토픽           |
+| `min_samples`              | 코어 포인트 밀도 기준       | 5~10            | 크면 노이즈가 늘고 군집이 보수적으로 잡힌다        |
+| `cluster_selection_method` | 군집 선택 방식              | `'eom'`         | `'eom'`(초과 질량)이 일반적으로 안정적             |
+
+> **노이즈가 너무 많을 때**: `min_cluster_size`를 줄이거나, B회차에서 다룰 `reduce_outliers()`로 -1 문서를 가장 가까운 토픽에 재할당할 수 있다.
+
+**그래서 무엇이 달라지는가?** K-means 같은 기본 군집화는 "정확히 K개의 군집"을 만들어야 한다(주제 개수를 미리 정해야 한다). HDBSCAN은 **데이터의 밀도 구조에서 자연스러운 군집 개수**를 찾는다.
 
 > **쉽게 말해서**: "주제가 몇 개인지 미리 알 필요가 없다. 데이터 자체가 알려준다"는 뜻이다.
 
-##### Stage 4: Topic Representation (c-TF-IDF)
+##### Step 4: 토큰화 (CountVectorizer)
+
+각 군집에 모인 문서들을 모아 **단어 빈도 행렬**을 만든다. 이 단계에서 불용어 제거, n-gram 범위, 최소 단어 빈도 등을 조정한다.
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer
+
+# 영어
+vectorizer = CountVectorizer(stop_words='english', ngram_range=(1, 2), min_df=2)
+# 한국어 (불용어 리스트는 별도 준비)
+# vectorizer = CountVectorizer(tokenizer=korean_noun_tokenizer, min_df=2)
+```
+
+> **한국어 팁**: 한국어는 조사·어미가 키워드의 명료성을 떨어뜨린다. **명사만 추출**(예: `kiwipiepy.Kiwi`)한 뒤 `CountVectorizer`에 전달하면 토픽 키워드의 해석성이 크게 좋아진다.
+
+##### Step 5: 토픽 표현 (c-TF-IDF)
 
 **목적**: 각 클러스터(주제)를 대표하는 단어들을 추출한다.
 
@@ -299,91 +413,115 @@ labels = hdbscan_model.fit_predict(reduced_embeddings)
 
 **c-TF-IDF(class-based Term Frequency-Inverse Document Frequency)**는 이를 위한 기법이다.
 
-아이디어:
+**아이디어**:
 
-1. 주제 0에 속하는 모든 문서를 하나로 합친다
-2. 주제 0의 특징 단어를 찾기 위해, "주제 0에서는 자주 나타나지만 다른 주제에서는 드물게 나타나는 단어"를 찾는다
-3. 이 단어들을 주제 0의 핵심 단어로 선정한다
+1. 토픽 0에 속하는 모든 문서를 **하나의 큰 가짜 문서**로 합친다 → 토픽 1, 2, … 도 마찬가지
+2. 이렇게 만든 "토픽 = 한 클래스"에 대해 TF-IDF를 계산한다
+3. "이 토픽에서는 자주 나타나지만 다른 토픽에서는 드문 단어"가 높은 점수를 받는다
 
-```
-주제 0 (Politics):
-  "국회" (주제 0에서 1000회 나타남, 다른 주제에서 평균 50회)
-  "법안" (주제 0에서 800회, 다른 주제에서 30회)
-  "투표" (주제 0에서 600회, 다른 주제에서 20회)
+수식으로 쓰면 다음과 같다 (Unicode):
 
-주제 1 (Sports):
-  "경기" (주제 1에서 1200회, 다른 주제에서 80회)
-  "선수" (주제 1에서 900회, 다른 주제에서 40회)
-  "스코어" (주제 1에서 700회, 다른 주제에서 25회)
-```
+  c-TF-IDF(i, c) = tf(i, c) · log(1 + A / tf(i))
 
-**그래서 무엇이 달라지는가?** 전체 말뭉치에서 가장 자주 나타나는 단어를 선택하는 것이 아니라, **각 주제에 특정한 단어**를 선택한다. "있다", "되다" 같은 흔한 동사는 제외되고, 주제마다 서로 다른 핵심 단어가 추출된다.
-
-#### 8.4 고급 기능과 시각화
-
-##### Topic Representation 최적화
-
-기본 c-TF-IDF 외에도, BERTopic은 추가 기법으로 핵심 단어를 정제한다:
-
-**MMR (Maximal Marginal Relevance)**: c-TF-IDF로 상위 50개 단어를 찾은 후, 이들 중 서로 다양한 단어만 선택한다. 예를 들어:
+여기서 **tf(i, c)**는 토픽 c에서 단어 i의 빈도, **A**는 전체 문서의 평균 단어 수, **tf(i)**는 전체에서 단어 i의 빈도다. 일반 TF-IDF와 달리 분자에 **로그(1 + …)**를 두어 항상 양의 값이 되도록 했다.
 
 ```
-처음 상위 5개: ["정치", "정책", "정부", "정치인", "정치적"]
-MMR 적용 후: ["정치", "정책", "정부"]  (중복 단어 제거)
+토픽 0 (정치):
+  "국회"  (토픽 0에서 1000회, 다른 토픽 평균 50회)
+  "법안"  (토픽 0에서 800회,  다른 토픽 평균 30회)
+  "투표"  (토픽 0에서 600회,  다른 토픽 평균 20회)
+
+토픽 1 (스포츠):
+  "경기"  (토픽 1에서 1200회, 다른 토픽 평균 80회)
+  "선수"  (토픽 1에서 900회,  다른 토픽 평균 40회)
+  "스코어" (토픽 1에서 700회, 다른 토픽 평균 25회)
 ```
 
-**KeyBERT**: BERT 임베딩을 사용해 주제의 벡터와 가장 유사한 단어를 찾는다.
+**그래서 무엇이 달라지는가?** 전체 말뭉치에서 가장 자주 나타나는 단어가 아니라, **각 토픽에 특징적인 단어**를 선택한다. "있다", "되다" 같은 흔한 동사는 제외되고, 토픽마다 서로 다른 핵심 단어가 추출된다.
 
-##### Topic Merging
+##### (선택) Step 6: 토픽 표현 보정 — KeyBERT / LLM
 
-자동으로 생성된 주제 중 비슷한 것들을 병합할 수 있다:
+c-TF-IDF로 뽑은 키워드를 **후처리**하여 더 다양한 단어로 정제하거나, 키워드를 한 줄 라벨로 자동 명명할 수 있다. 본 회차는 c-TF-IDF까지만 다루며, **LLM 라벨링은 강의 범위 밖**이다.
+
+- **MMR (Maximal Marginal Relevance)**: 상위 50개 단어 중 서로 다양한 단어만 골라낸다. 예: `["정치", "정책", "정부", "정치인", "정치적"]` → `["정치", "정책", "정부"]` (중복 어근 제거)
+- **KeyBERT**: 토픽 임베딩 벡터에 가까운 단어를 다시 골라 의미 응집도를 높인다.
 
 ```python
-# 유사도가 0.8 이상인 주제들을 병합
-topic_model.merge_topics(docs, threshold=0.80)
+from bertopic.representation import KeyBERTInspired
+representation_model = KeyBERTInspired()
+topic_model = BERTopic(representation_model=representation_model)
 ```
 
-이렇게 하면 과다하게 분할된 주제들을 정리할 수 있다.
+#### 8.4 BERTopic 시각화 — 7가지 메서드
 
-##### 시각화 기능
+BERTopic은 Plotly 기반의 **인터랙티브 시각화**를 내장한다. 결과는 HTML로 저장되며 브라우저에서 줌·필터·하이라이트가 가능하다. 각 메서드는 보는 관점이 다르므로 용도에 맞게 선택해야 한다.
 
-**표 8.1** BERTopic 주요 시각화 기능
+**표 8.1** BERTopic 주요 시각화 메서드
 
-| 시각화                      | 설명                                      | 사용                    |
-| --------------------------- | ----------------------------------------- | ----------------------- |
-| Topic Bar Chart             | 각 주제의 상위 단어들을 막대그래프로 표시 | `visualize_barchart()`  |
-| Topic Heatmap               | 주제-단어 가중치 행렬을 히트맵으로 시각화 | `visualize_heatmap()`   |
-| Topic Network               | 주제들 간 유사도를 네트워크 그래프로 표현 | `visualize_hierarchy()` |
-| Term Rank                   | 각 단어의 BERTopic 스코어를 시각화        | `visualize_term_rank()` |
-| Document Topic Distribution | 특정 문서의 주제 비율을 표시              | (커스텀 코드)           |
+| 메서드                              | 보여주는 것                              | 주요 용도                          |
+| ----------------------------------- | ---------------------------------------- | ---------------------------------- |
+| `visualize_topics()`                | 토픽 간 거리 맵 (Intertopic Distance)    | 토픽들의 **관계와 크기**를 한눈에   |
+| `visualize_documents()`             | 문서 임베딩 2D 산점도                    | 문서 분포와 토픽 경계 확인          |
+| `visualize_hierarchy()`             | 토픽 계층 **덴드로그램**                 | 어느 토픽들이 비슷한지 → 병합 결정  |
+| `visualize_heatmap()`               | 토픽 간 유사도 히트맵                    | 유사 토픽 식별                     |
+| `visualize_barchart()`              | 토픽별 키워드 막대 차트                  | 키워드 중요도 비교                 |
+| `visualize_distribution(probs[i])`  | 단일 문서의 토픽 분포                    | 한 문서가 어떤 토픽 혼합인지       |
+| `visualize_topics_per_class()`      | 클래스(true label)별 토픽 분포           | 정답 라벨과 토픽 대응 관계 검증     |
 
-**Topic Bar Chart의 예**:
+> **자주 헷갈리는 점**: `visualize_hierarchy()`는 **덴드로그램(나무)**이고, 토픽들의 "지도"를 보고 싶다면 `visualize_topics()`다. 표 8.1을 헷갈리지 말 것.
 
-```
-Topic 0 (Politics):
-  국회 ████████████████████ 0.35
-  법안 ██████████████████ 0.32
-  투표 ████████████ 0.18
-  대통령 ████████ 0.15
+**언제 어떤 시각화를 쓰는가? — 한 줄 가이드**
 
-Topic 1 (Sports):
-  경기 ████████████████████████ 0.42
-  선수 ████████████████ 0.28
-  우승 ██████████ 0.16
-  리그 ████████ 0.14
-```
+- 처음 결과 받았을 때: `get_topic_info()` → `visualize_barchart()` (키워드 점검)
+- 토픽이 너무 많아 보일 때: `visualize_hierarchy()` (병합할 후보 찾기)
+- 문서가 토픽에 잘 모여 있는지 의심될 때: `visualize_documents()` 와 `visualize_topics()`
+- 정답 라벨이 있는 데이터(평가용)에서: `visualize_topics_per_class()`
 
-이 그래프는 각 주제가 어떤 단어들로 구성되어 있는지 한눈에 보여준다.
+#### 8.5 토픽 평가지표 — 결과는 좋은가?
 
-##### Dynamic Topic Modeling
+BERTopic이 토픽을 자동으로 뽑아주지만, **그 토픽이 좋은지** 정량적으로 평가해야 한다. 평가지표는 크게 두 가지 축이 있다.
 
-BERTopic은 시계열 데이터를 지원한다. 시간이 지남에 따라 각 주제의 출현 빈도가 어떻게 변하는지 추적할 수 있다:
+1. **일관성(Coherence)**: 한 토픽 안의 키워드들이 의미적으로 잘 뭉쳐 있는가? → C_v, NPMI, UMass
+2. **다양성(Diversity)**: 토픽들끼리 키워드가 충분히 다른가? → Topic Diversity
 
-```python
-topic_model.update_topics(docs, topics=topics, vectorizer_model=new_vectorizer)
-```
+##### 일관성 지표 (Coherence)
 
-이를 통해 "코로나19 주제의 관심도가 2020년 3월부터 급증하다가 2023년부터 감소"와 같은 트렌드를 시각화할 수 있다.
+**C_v (가장 널리 쓰임)**: 한 토픽의 상위 K개 단어들 사이의 의미적 유사도를 평균낸 값.
+
+  C_v = (2 / (K · (K − 1))) · Σ_{i<j} sim(w_i, w_j)
+
+여기서 w_i, w_j는 그 토픽의 상위 단어, sim은 단어 임베딩이나 동시 출현 기반 유사도.
+
+  - **해석 기준**: ≥ 0.4 수용, ≥ 0.5 양호, ≥ 0.6 우수
+  - **장점**: 사람의 해석성과 가장 잘 맞는 지표
+  - **단점**: 계산 비용이 크고, 외부 코퍼스의 동시 출현이 필요
+
+**NPMI (Normalized Pointwise Mutual Information)**:
+
+  PMI(w_i, w_j) = log( P(w_i, w_j) / (P(w_i) · P(w_j)) )
+  NPMI(w_i, w_j) = PMI(w_i, w_j) / (− log P(w_i, w_j))
+
+  - 범위 −1 ~ 1, 높을수록 좋다.
+  - 0에 가깝거나 음수면 토픽 키워드가 우연히 모인 수준이다.
+
+**UMass**: 단어 쌍의 동시 출현을 로그 비율로 본 지표. **0에 가까울수록 좋다(보통 음수)**. 절대값이 작을수록 좋고, 단독 해석은 어렵다.
+
+##### 다양성 지표 (Topic Diversity)
+
+각 토픽의 상위 N개 단어를 모두 모았을 때 **고유 단어의 비율**.
+
+  Topic Diversity = (고유 단어 수) / (토픽 수 × N)
+
+  - 1.0 = 모든 토픽이 완전히 다른 단어로 구성 → 매우 좋음
+  - 0.7 이상 양호, 0.5 미만이면 **토픽 간 중복**이 심하다는 신호 → `reduce_topics()` 또는 MMR 적용 검토 (B회차)
+
+##### 실무 권장 절차 — "한 지표만 보지 말 것"
+
+1. **C_v**(또는 NPMI)와 **Topic Diversity**를 **함께** 본다.
+2. 여러 후보 설정(K, `min_cluster_size` 등)을 비교한다.
+3. 마지막으로는 **사람의 해석**으로 마무리한다. 대표 문서 3~5개를 직접 읽어보고 키워드와 일치하는지 확인한다. 지표가 좋아도 사람이 읽었을 때 어색하면 그 토픽은 신뢰하기 어렵다.
+
+> **B회차 예고**: Optuna로 일관성을 **최대화**하고 노이즈 비율을 **최소화**하는 다목적 최적화를 수행하면 이 절차를 자동화할 수 있다.
 
 ---
 
@@ -611,27 +749,90 @@ Topic Name                              Count
 4     health_medical_disease_treatment   73
 ```
 
-**[단계 6] 시각화**
+**[단계 6] 시각화 — 7가지 메서드 직접 실행**
 
 ```python
-# Bar Chart: 각 주제의 상위 단어
-fig = topic_model.visualize_barchart(top_n_topics=5)
-fig.show()
+# 1) 토픽 간 거리 맵 (intertopic distance)
+topic_model.visualize_topics().show()
 
-# Heatmap: 주제-단어 가중치
-fig = topic_model.visualize_heatmap(top_n_topics=5, top_n_words=10)
-fig.show()
+# 2) 키워드 막대 차트
+topic_model.visualize_barchart(top_n_topics=5).show()
 
-# Topic Network: 주제들 간의 유사도
-fig = topic_model.visualize_hierarchy()
-fig.show()
+# 3) 계층 덴드로그램 (병합 후보 식별)
+topic_model.visualize_hierarchy().show()
+
+# 4) 토픽 간 유사도 히트맵
+topic_model.visualize_heatmap(top_n_topics=5, top_n_words=10).show()
+
+# 5) 문서 임베딩 2D 산점도
+topic_model.visualize_documents(documents).show()
+
+# 6) 단일 문서의 토픽 확률 분포
+topic_model.visualize_distribution(probabilities[42]).show()
+
+# 7) 정답 라벨이 있다면 (예: 카테고리)
+# topic_model.visualize_topics_per_class(documents, classes=true_labels).show()
 ```
 
 **시각화 해석**:
 
-- **Bar Chart**: 각 주제가 어떤 단어로 특징지어지는지 보여준다. 크기가 클수록 그 주제에 더 특징적인 단어다.
-- **Heatmap**: 행은 주제, 열은 단어. 색이 진할수록 그 주제에 중요한 단어다. 열 패턴이 다르면 주제가 서로 다르다는 뜻.
-- **Network**: 주제들을 노드로, 유사도를 간선으로 표현. 가까이 있는 주제들은 의미가 비슷하다(예: "비즈니스"와 "기술"은 경제적 관련성이 있어 가깝다).
+- **`visualize_topics()`**: 토픽들의 "지도". 원의 크기는 토픽의 문서 수, 거리는 토픽 간 의미적 차이.
+- **`visualize_barchart()`**: 토픽별 키워드 점수. 막대가 길수록 그 토픽에 더 특징적인 단어다.
+- **`visualize_hierarchy()`**: 어느 토픽들이 비슷한지 나무 구조로 보여준다 → B회차 `reduce_topics()`의 입력으로 쓰인다.
+- **`visualize_heatmap()`**: 행·열 모두 토픽. 색이 진하면 두 토픽이 비슷하다.
+- **`visualize_documents()`**: 문서를 점으로, 토픽을 색으로 표시한 산점도.
+
+**[단계 7] 토픽 평가지표 계산**
+
+지표 한 줄 정리: **일관성(C_v / NPMI / UMass)**과 **다양성(Topic Diversity)**을 함께 본다.
+
+```python
+import numpy as np
+
+def topic_diversity(topic_model, top_n: int = 10) -> float:
+    """모든 토픽의 상위 N개 단어 중 고유 단어 비율."""
+    topics = [t for t in topic_model.get_topics().keys() if t != -1]
+    all_words: list[str] = []
+    for t in topics:
+        words = [w for w, _ in topic_model.get_topic(t)[:top_n]]
+        all_words.extend(words)
+    return len(set(all_words)) / max(len(all_words), 1)
+
+def npmi_coherence(topic_model, docs, top_n: int = 10) -> float:
+    """문서 동시 출현 기반의 NPMI 평균 (간이 구현)."""
+    from collections import Counter
+    from itertools import combinations
+    tokenized = [set(d.lower().split()) for d in docs]
+    N = len(tokenized)
+    df = Counter(w for doc in tokenized for w in doc)
+    scores: list[float] = []
+    topics = [t for t in topic_model.get_topics().keys() if t != -1]
+    for t in topics:
+        words = [w for w, _ in topic_model.get_topic(t)[:top_n]]
+        for w_i, w_j in combinations(words, 2):
+            n_ij = sum(1 for doc in tokenized if w_i in doc and w_j in doc)
+            if n_ij == 0 or df[w_i] == 0 or df[w_j] == 0:
+                continue
+            p_ij = n_ij / N
+            p_i = df[w_i] / N
+            p_j = df[w_j] / N
+            pmi = np.log(p_ij / (p_i * p_j))
+            npmi = pmi / (-np.log(p_ij))
+            scores.append(npmi)
+    return float(np.mean(scores)) if scores else 0.0
+
+print(f"NPMI         : {npmi_coherence(topic_model, documents):.4f}")
+print(f"Topic Diversity: {topic_diversity(topic_model):.4f}")
+```
+
+출력 예시:
+
+```
+NPMI         : 0.1543
+Topic Diversity: 0.8200
+```
+
+**해석**: NPMI는 −1~1, 높을수록 의미 응집도가 높고, Topic Diversity는 0~1, 높을수록 토픽 간 키워드 중복이 적다. **두 지표를 함께** 보고 한쪽이 낮으면 그 원인이 무엇인지(토픽이 너무 잘게 쪼개짐? 키워드가 일반어 위주?) 진단한다. 본격적인 C_v는 `gensim.models.CoherenceModel` 등으로 계산할 수 있으나, 본 회차에서는 라이브러리 의존을 피해 NPMI까지만 다룬다.
 
 **[단계 7] 특정 문서의 주제 분석**
 
@@ -678,49 +879,42 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 
 #### 이 회차의 핵심 내용
 
-- **토픽 모델링**은 문서 집합에서 숨겨진 주제를 자동 발견하는 기계학습 기법으로, 규모가 큰 데이터에서 개별 분석이 불가능할 때 유용하다.
+- **토픽 모델링**은 문서 집합에서 숨겨진 주제를 자동 발견하는 기계학습 기법으로, 규모가 큰 데이터에서 개별 분석이 불가능할 때 유용하다. **군집화**가 "어느 그룹에 속하나"라면 토픽 모델링은 "어떤 주제들의 혼합인가"에 답한다.
 
-- **LDA**는 확률론적 접근으로, 각 문서를 주제들의 혼합물로 모델링하고 주제를 단어 분포로 정의한다. 수학적으로 정교하지만, 단어를 통계적으로만 처리하므로 의미를 이해하지 못한다.
+- **LDA**(통계 기반)는 단어 빈도만으로 토픽을 추론하지만 문맥·동의어·짧은 텍스트에 약하다. **BERTopic**(임베딩 기반)은 의미 벡터로 의미적 유사 문서를 묶고, 그 묶음을 대표하는 키워드를 c-TF-IDF로 뽑아낸다. 임베딩 기반에는 BERTopic 외에도 Top2Vec / LDA2Vec / CTM / ETM 같은 친척이 있다.
 
-- **BERTopic**은 신경망 기반 접근으로, BERT 임베딩과 거리 기반 클러스터링을 결합하여 의미론적으로 비슷한 문서를 주제로 묶는다. LDA보다 직관적이고 현대적이다.
+- **BERTopic의 5단계**: (1) **임베딩**(SBERT), (2) **차원 축소**(UMAP), (3) **군집화**(HDBSCAN), (4) **토큰화**(CountVectorizer), (5) **토픽 표현**(c-TF-IDF). 선택적 6단계에서 KeyBERT/LLM으로 표현을 보정할 수 있다.
 
-- **BERTopic의 4단계**: (1) Document Embedding (BERT로 의미 벡터화), (2) Dimensionality Reduction (UMAP으로 차원 축소), (3) Clustering (HDBSCAN으로 주제 그룹화), (4) Topic Representation (c-TF-IDF로 핵심 단어 추출).
+- **UMAP**은 국소·전역 구조를 보존하면서 고차원 임베딩을 5차원 정도로 펼친다. `n_neighbors=15`, `n_components=5`, `min_dist=0.0`, `metric='cosine'`이 기본 권장. **`random_state=42` 고정** 필수.
 
-- **BERT 임베딩**은 단순 단어 출현 빈도가 아니라 문맥을 고려한 의미 벡터이므로, 다의어를 구분하고 의미론적으로 비슷한 문서를 가깝게 표현한다.
+- **HDBSCAN**은 밀도 기반 군집화로 토픽 수를 자동 결정하고 -1로 노이즈를 분리한다. `min_cluster_size`로 토픽의 굵기를 조절한다.
 
-- **UMAP**은 고차원 데이터의 거리와 이웃 관계를 보존하면서 저차원으로 축소하여, 이웃 관계가 명확하게 드러나도록 한다.
+- **c-TF-IDF**는 "전체에서 흔한 단어"가 아니라 "**그 토픽에서만 자주 등장하는 단어**"를 골라낸다. c-TF-IDF(i, c) = tf(i, c) · log(1 + A / tf(i)).
 
-- **HDBSCAN**은 밀도 기반 클러스터링으로, 데이터 구조 자체에서 자연스러운 클러스터 개수를 찾으므로 주제 개수를 미리 정할 필요가 없다.
+- **평가는 두 축**: 일관성(C_v ≥ 0.4 수용, NPMI 높을수록, UMass는 0에 가까울수록)과 **다양성(Topic Diversity ≥ 0.7 양호)**을 함께 본다. 마지막에는 **사람이 대표 문서를 직접 읽어** 검증한다.
 
-- **c-TF-IDF**는 각 주제에 특정한 단어를 추출하여, "전체 말뭉치에서 자주 나타나는 흔한 단어"를 제외하고 "주제를 구별하는 특징 단어"를 선택한다.
+- **시각화 7종**: `visualize_topics`(토픽 지도) · `visualize_barchart`(키워드) · `visualize_hierarchy`(덴드로그램) · `visualize_heatmap`(유사도) · `visualize_documents`(산점도) · `visualize_distribution`(단일 문서) · `visualize_topics_per_class`(라벨 대응).
 
 #### B회차 과제 스펙
 
-**B회차 (90분) — 실습 + 토론**: BERTopic 파이프라인 구현 및 결과 해석
+**B회차 (90분) — 실습 + 토론**: BERTopic 다듬기 + 동적/멀티모달 확장
 
 **과제 목표**:
 
-- BERTopic을 사용하여 뉴스 데이터셋의 숨겨진 주제를 자동 추출한다
-- 각 주제의 핵심 단어를 해석하고, 주제 간의 유사도를 분석한다
-- 토픽 모델링 결과를 시각화하고, 결과의 타당성을 평가한다
+- 노이즈 처리(`reduce_outliers`), 토픽 병합(`reduce_topics`), Optuna 다목적 튜닝으로 BERTopic 결과를 **실무 수준으로 다듬는다**.
+- 시간 정보가 있는 데이터에 `topics_over_time`을 적용하고, 토픽 **생명 주기(출현 → 최고점 → 소멸)**를 자동 식별한다.
+- (선택) CLIP 기반 멀티모달 토픽 모델링을 시연한다.
 
-**과제 구성** (3단계, 30~40분 완결):
+**과제 구성** (3 + 1 체크포인트, 75~90분):
 
-- **체크포인트 1 (10분)**: BERTopic 모델 초기화, 학습, 주제 추출
-- **체크포인트 2 (15분)**: 주제 시각화 (Bar Chart, Heatmap, Network) 및 해석
-- **체크포인트 3 (10분)**: 특정 문서의 주제 분포 분석 및 트렌드 해석
+- **체크포인트 1 (25분)**: 평가지표(NPMI, Topic Diversity) 계산 → `reduce_outliers` → `reduce_topics` 적용 후 변화 비교
+- **체크포인트 2 (25분)**: Optuna 다목적 튜닝(일관성↑·노이즈↓), 파레토 프론트 해석
+- **체크포인트 3 (25분)**: `topics_over_time` + 시계열 상관 + 토픽 생명 주기 분석
+- **(선택) 체크포인트 4 (15분)**: CLIP 멀티모달 토픽 모델링 시연
 
-**제출 형식**:
+**제출 형식**: 노트북(`practice/chapter8/8A-topic-modeling-assignment.ipynb`)의 모든 셀 실행 결과 + `practice/chapter8/data/output/`의 산출물 + 분석 리포트(2~3문단).
 
-- 완성된 코드 파일 (`practice/chapter8/code/8-2-bertopic-analysis.py`)
-- 시각화 이미지 (Bar Chart, Heatmap, Network) (`practice/chapter8/data/output/`)
-- 분석 리포트 (주제 해석, 결과 평가, 2~3문단)
-
-**Copilot 활용 가이드**:
-
-- 기본: "BBC 뉴스 데이터로 BERTopic을 실행해줘"
-- 심화: "각 주제의 시간별 변화를 시각화하는 코드를 추가해줄 수 있어?"
-- 검증: "이 결과의 품질을 평가하는 메트릭(Coherence, Diversity)을 계산해줄래?"
+상세 가이드와 코드 패턴은 **`docs/ch8B.md`** 에 있다.
 
 ---
 
@@ -728,18 +922,16 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 
 **문제 (1문항)**:
 
-다음 설명 중 BERTopic이 LDA보다 우수한 이유로 가장 적절하지 않은 것은?
+다음 중 BERTopic의 5단계 파이프라인과 그 단계의 역할이 **잘못** 짝지어진 것은?
 
-① BERT 사전학습 임베딩을 사용하므로 문맥을 고려한 의미 벡터를 얻을 수 있다
-② HDBSCAN을 사용하여 주제 개수를 미리 정할 필요가 없다
-③ 확률론적 수학이 필요 없어서 구현과 이해가 간단하다
-④ 벡터 공간의 거리를 기반으로 하므로 의미론적으로 비슷한 문서를 더 정확히 그룹화한다
+① 임베딩(SBERT) — 문서를 의미 벡터로 변환
+② UMAP — 차원의 저주를 완화하고 군집화에 유리한 저차원 공간을 만든다
+③ HDBSCAN — 토픽 개수 K를 미리 받아 정확히 K개의 군집을 만든다
+④ c-TF-IDF — 그 토픽에서만 두드러지는 단어를 골라내 키워드로 삼는다
 
-정답: **③** (부분적으로 맞지만, 최선의 답은 아님)
+정답: **③**
 
-**설명**: BERTopic이 LDA보다 우수한 주된 이유는 ①④②이다. ①은 의미 이해, ④는 의미론적 유사도, ②는 주제 개수 자동 결정이 주요 장점이다. ③도 맞는 말이지만 (확률 수학이 더 간단함), BERTopic이 LDA보다 우수한 "핵심 이유"는 아니다. LDA도 이론 수준에서는 우아하고, 문제는 단어의 의미를 이해하지 못한다는 것이다. 그 차이는 "단순함"이 아니라 "의미 이해 능력"에 있다.
-
-더 정확히는, ③이 가장 부정확한 선택지다. BERTopic도 내부적으로는 복잡한 알고리즘(UMAP, HDBSCAN)을 사용하므로 "간단하다"고 보기 어렵다. 다만 확률론적 추론이 필요 없어서 더 직관적일 수는 있다.
+**설명**: HDBSCAN은 K-Means처럼 K를 미리 받지 않는다. **밀도 구조**에서 자연스러운 군집 개수를 자동으로 찾고, 어디에도 명확히 속하지 않는 문서는 **-1(노이즈)**로 분리한다. K를 미리 정해야 하는 알고리즘은 K-Means이며, 이것이 BERTopic이 LDA의 "K를 미리 정해야 한다"는 한계를 자연스럽게 해소하는 이유다. ①·②·④는 모두 정확하다 — 특히 ④는 c-TF-IDF의 정의 그 자체다.
 
 ---
 
@@ -756,7 +948,13 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 
 ## 다음 장 예고
 
-다음 회차(8주차 B회차)에서는 이 이론을 바탕으로 **실제 뉴스 데이터셋에서 BERTopic을 실행**하고, **주제 시각화 결과를 해석**하며, **시간에 따른 주제 변화를 추적**하는 실습을 수행한다. 또한 토픽 모델링 결과의 품질을 평가하는 메트릭(Topic Coherence, Topic Diversity)을 계산하고 해석하는 경험을 쌓는다.
+다음 회차(**8주차 B회차, `docs/ch8B.md`**)에서는 BERTopic을 **실무 수준으로 다듬고 확장**한다.
+
+- **다듬기**: `reduce_outliers`로 -1(노이즈) 문서 재할당, `reduce_topics`로 유사 토픽 병합, **Optuna 다목적 최적화**(일관성↑·노이즈↓)
+- **시간 확장**: `topics_over_time`, 추세 5가지 패턴, 토픽 간 시계열 상관, **토픽 생명 주기**(출현 → 최고점 → 소멸) 자동 식별
+- **모달 확장**: **CLIP 기반 멀티모달 토픽 모델링** — 텍스트와 이미지를 같은 벡터 공간에서 함께 분석
+
+모든 방법은 `practice/chapter8/8A-topic-modeling-assignment.ipynb`에서 **직접 실행**해 결과를 확인한다.
 
 ---
 
@@ -768,3 +966,9 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 4. Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. _Pacific-Asia Conference on Knowledge Discovery and Data Mining (PAKDD)_, 160-172.
 5. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. _ICLR_. https://arxiv.org/abs/1810.04805
 6. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. _EMNLP_. https://arxiv.org/abs/1908.10084
+7. Angelov, D. (2020). Top2Vec: Distributed Representations of Topics. _arXiv_. https://arxiv.org/abs/2008.09470
+8. Bianchi, F., Terragni, S., & Hovy, D. (2021). Pre-training is a Hot Topic: Contextualized Document Embeddings Improve Topic Coherence (CTM). _ACL_. https://aclanthology.org/2021.acl-short.96/
+9. Dieng, A. B., Ruiz, F. J. R., & Blei, D. M. (2020). Topic Modeling in Embedding Spaces (ETM). _TACL_. https://aclanthology.org/2020.tacl-1.29/
+10. Akiba, T. et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. _KDD_. https://arxiv.org/abs/1907.10902
+11. Radford, A. et al. (2021). Learning Transferable Visual Models From Natural Language Supervision (CLIP). _ICML_. https://arxiv.org/abs/2103.00020
+12. Röder, M., Both, A., & Hinneburg, A. (2015). Exploring the Space of Topic Coherence Measures. _WSDM_. https://dl.acm.org/doi/10.1145/2684822.2685324

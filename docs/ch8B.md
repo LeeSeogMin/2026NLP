@@ -1,761 +1,478 @@
-## 8주차 B회차: BERTopic 실습 + 결과 해석
+## 8주차 B회차: BERTopic 다듬기 + 동적·멀티모달 확장
 
-> **미션**: BERTopic으로 뉴스 기사 데이터셋의 토픽을 추출하고 결과를 시각화·해석하며, 토픽 모델링 품질을 평가할 수 있다
+> **미션**: 수업이 끝나면 BERTopic 결과를 노이즈 처리·토픽 병합·자동 튜닝으로 다듬을 수 있고, 시간에 따른 주제 변화와 텍스트+이미지 통합 분석까지 직접 실행할 수 있다
+
+### 학습목표
+
+이 회차를 마치면 다음을 수행할 수 있다:
+
+1. `reduce_outliers()`로 노이즈(-1) 문서를 가장 유사한 토픽에 재할당하고, 적용 전후 토픽별 문서 수 변화를 비교할 수 있다
+2. `reduce_topics()`로 유사한 토픽들을 자동 병합하고, c-TF-IDF 코사인 유사도 기반의 병합 원리를 설명할 수 있다
+3. **Optuna 다목적 최적화**로 일관성(coherence)은 최대화하고 노이즈 비율은 최소화하는 파라미터를 자동으로 찾고, 파레토 프론트(trade-off 곡선)를 해석할 수 있다
+4. `topics_over_time()`을 사용해 시간에 따른 토픽 변화를 추출하고, 추세 5가지 패턴(급상승·점진상승·급락·주기·안정)을 분류할 수 있다
+5. 토픽 간 시계열 **상관관계 행렬**을 계산해 함께 움직이는 주제를 식별할 수 있다
+6. 각 토픽의 **출현(emergence) → 최고점(peak) → 소멸(decline)** 시점을 자동 식별하는 생명 주기 분석 함수를 구현하고, 결과를 비즈니스 시나리오와 연결해 해석할 수 있다
+7. (선택) **CLIP** 기반 멀티모달 토픽 모델링의 두 시나리오(텍스트+이미지 결합 / 이미지 단독)를 시연할 수 있다
 
 ### 수업 타임라인
 
-| 시간 | 내용 | Copilot 사용 |
-|------|------|-------------|
-| 00:00~00:05 | 조 편성 + 역할 배분 (조원 A/B) | 사용 안 함 |
-| 00:05~00:10 | A회차 핵심 리캡 + 과제 스펙 재확인 | 사용 안 함 |
-| 00:10~00:55 | 2인1조 Copilot 구현 (체크포인트 3회) | 적극 사용 |
-| 00:55~01:00 | Google Classroom 제출 (조별 1부) | 사용 안 함 |
-| 01:00~01:20 | 결과 토론 (주제 해석·품질 평가) | 사용 안 함 |
-| 01:20~01:28 | 핵심 정리 | 사용 안 함 |
-| 01:28~01:30 | 다음 주 예고 | 사용 안 함 |
+| 시간        | 내용                                                              | Copilot 활용     |
+| ----------- | ----------------------------------------------------------------- | ---------------- |
+| 00:00~00:05 | A회차 회고 + 오늘의 미션                                          | 사용 안 함       |
+| 00:05~00:30 | 체크포인트 1: 평가지표 → `reduce_outliers` → `reduce_topics`       | 보조용으로 가능  |
+| 00:30~00:55 | 체크포인트 2: Optuna 다목적 튜닝 + 파레토 해석                     | 보조용으로 가능  |
+| 00:55~01:20 | 체크포인트 3: `topics_over_time` + 시계열 상관 + 토픽 생명 주기    | 보조용으로 가능  |
+| 01:20~01:25 | (선택) 체크포인트 4: CLIP 멀티모달 시연                            | 보조용으로 가능  |
+| 01:25~01:30 | 핵심 정리 + 제출물 안내                                            |                  |
+
+> **A회차와의 관계**: A회차에서 만든 BERTopic 모델을 그대로 받아서 다듬는다. 노트북은 **셀 단위로 누적**되므로, A회차 마지막 모델(`topic_model`, `documents`, `topics`, `probabilities`)을 그대로 이어 쓴다.
 
 ---
 
-### A회차 핵심 리캡
+### 오늘의 질문
 
-**토픽 모델링의 정의**:
-- 문서 집합에서 숨겨진 주제를 자동 발견하는 기계학습 기법
-- 규모가 큰 텍스트 데이터에서 개별 분석이 불가능할 때 유용
+**오늘의 질문**: "BERTopic이 자동으로 토픽을 뽑아줬다. 그런데 *너무 많은 토픽이 노이즈로 빠지고*, *비슷한 토픽이 따로따로 잡혀* 있다. 그리고 *시간이 지나면 어떤 주제가 뜨고 지는지* 알고 싶다. 이걸 데이터에 손대지 않고 도구로 풀 수 있는가?"
 
-**LDA (Latent Dirichlet Allocation)**:
-- 확률론적 접근: 각 문서는 여러 주제의 혼합물, 각 주제는 단어들의 확률 분포
-- 장점: 수학적으로 정교함
-- 한계: 단어 의미를 이해하지 못하고, 주제 개수를 미리 정해야 함
-
-**BERTopic의 4단계 파이프라인**:
-1. Document Embedding (BERT): 문서를 의미 벡터로 변환 (384차원)
-2. Dimensionality Reduction (UMAP): 고차원 벡터를 저차원(5D)으로 축소
-3. Clustering (HDBSCAN): 의미론적으로 비슷한 문서끼리 주제로 그룹화 (자동 주제 개수 결정)
-4. Topic Representation (c-TF-IDF): 각 주제의 특징적인 단어 추출
-
-**BERTopic이 LDA보다 우수한 이유**:
-- BERT 사전학습 임베딩으로 문맥을 고려한 의미 벡터 획득
-- 거리 기반 클러스터링으로 의미론적 유사도 직접 포착
-- HDBSCAN으로 주제 개수를 자동 결정 (사전 설정 불필요)
-
-**실습 연계**:
-- 지난 수업의 이론을 실제 뉴스 데이터로 구현한다
-- BERTopic의 각 단계 결과를 이해하고 해석한다
-- 토픽 모델링 결과의 품질을 평가한다
+**대답**: 그럴 수 있다. BERTopic은 결과를 다시 만지작거릴 수 있는 **후처리 메서드 3종 세트**(`reduce_outliers`, `reduce_topics`, Optuna 튜닝)와 **동적 분석 API**(`topics_over_time`)를 갖춘다. 오늘은 이 도구들을 손에 익힌다.
 
 ---
 
-### 과제 스펙
+### 8.6 BERTopic 다듬기 — "기본 결과를 실무 결과로"
 
-**과제**: BERTopic 파이프라인 구현 + 결과 시각화 및 해석 리포트
+A회차에서 만든 모델을 그대로 받아서 세 가지 도구로 다듬는다.
 
-**제출 형태**: 조별 1부, Google Classroom 업로드
+#### 8.6.1 노이즈 처리 — `reduce_outliers()`
 
-**파일 구성**:
-- 구현 코드 파일 (`*.py`)
-- 시각화 결과 이미지 (Bar Chart, Heatmap, Network 3개 이상)
-- 분석 리포트 (주제 해석 + 품질 평가, 2~3페이지)
+##### 직관
 
-**검증 기준**:
-- ✓ BERTopic 모델 초기화 및 학습 (데이터 로드, 파이프라인 구성)
-- ✓ 각 주제의 핵심 단어 추출 및 의미 해석
-- ✓ 주제 시각화 (Bar Chart, Heatmap, Network)
-- ✓ 특정 문서의 주제 분포 분석 및 해석
-- ✓ 토픽 모델링 품질 평가 (Coherence Score 또는 Diversity 메트릭)
+HDBSCAN은 어디에도 명확히 속하지 않는 문서를 **-1(노이즈)**로 분리한다. 이는 안전한 기본 동작이지만, 노이즈가 너무 많으면 **분석에서 빠지는 데이터가 너무 많아져** 손실이 크다.
 
----
+> **쉽게 말해서**: "이 사람은 어느 그룹에 속할지 애매해서 일단 빼두자"고 한 사람들에게, "그래도 가장 가까운 그룹은 어디인가?"를 다시 물어보는 것이다.
 
-### 2인1조 실습
+##### 처리 전략 3가지
 
-> **Copilot 활용**: BERTopic 코드를 한 줄씩 직접 작성해본 뒤, Copilot에게 "BBC 뉴스 데이터로 BERTopic을 실행해줄래?", "주제 시각화 코드 작성해줄 수 있어?", "토픽 코히어런스 스코어를 계산하는 함수 만들어줘" 같이 단계적으로 요청한다. Copilot의 제안을 검토하고 결과를 실제로 해석하는 과정에서 토픽 모델링의 작동 원리를 깊이 이해할 수 있다.
+1. **그대로 둔다(제외)**: 노이즈가 적고(< 5%) 분석 정확성이 우선일 때. 가장 단순하지만 정보 손실이 있다.
+2. **재할당(`reduce_outliers`)**: 각 노이즈 문서를 **가장 유사한 토픽**에 다시 배정. 일반적으로 가장 권장.
+3. **별도 검토**: 노이즈 문서가 새로운 패턴을 담고 있는지 사람이 직접 본다. 새 토픽을 발견할 때 사용.
 
-**역할 분담**:
-- **조원 A (드라이버)**: 코드 작성 및 실행, 데이터 로드, 시각화 확인
-- **조원 B (네비게이터)**: 로직 검토, Copilot 프롬프트 설계, 결과 해석 및 기록
-- **체크포인트마다 역할 교대**: 드라이버와 네비게이터를 번갈아가며 진행하여 두 명 모두 전체 구현을 이해한다
-
----
-
-#### 체크포인트 1: BERTopic 모델 초기화 + 데이터 로드 + 학습 (15분)
-
-**목표**: BBC 뉴스 데이터셋을 로드하고 BERTopic 모델을 초기화 및 학습하여, 자동으로 발견된 주제와 각 주제의 크기를 확인한다
-
-**핵심 단계**:
-
-① **필요 라이브러리 설치 및 데이터 로드**
+##### 코드
 
 ```python
-# 필요 라이브러리
-import pandas as pd
-import numpy as np
-from datasets import load_dataset
-from sentence_transformers import SentenceTransformer
-from umap import UMAP
-from hdbscan import HDBSCAN
-from bertopic import BERTopic
-import warnings
-warnings.filterwarnings('ignore')
-
-# BBC 뉴스 데이터셋 로드 (약 1,500개 기사)
-print("BBC 뉴스 데이터셋 로드 중...")
-dataset = load_dataset("bbc_news_classification")
-documents = dataset['train']['text'][:1500]
-labels = dataset['train']['label'][:1500]
-
-print(f"총 {len(documents)}개 문서 로드됨")
-
-# 데이터셋 기본 통계
-print(f"\n데이터셋 정보:")
-print(f"  문서 개수: {len(documents)}")
-print(f"  평균 길이: {np.mean([len(d.split()) for d in documents]):.1f} 단어")
-print(f"  최소/최대 길이: {min([len(d.split()) for d in documents])}/{max([len(d.split()) for d in documents])} 단어")
-
-# 샘플 문서 3개 보기
-print(f"\n샘플 문서:")
-for i in range(3):
-    print(f"\n문서 {i+1}:")
-    print(documents[i][:200] + "...")
-```
-
-예상 동작:
-```
-BBC 뉴스 데이터셋 로드 중...
-총 1500개 문서 로드됨
-
-데이터셋 정보:
-  문서 개수: 1500
-  평균 길이: 152.3 단어
-  최소/최대 길이: 12/892 단어
-
-샘플 문서:
-문서 1:
-Ad sales boost Time Warner profit Quick jump in revenues To the delight of ...
-
-문서 2:
-Dollar gains on Greenspan speech The dollar has hit its highest level in almost ...
-
-문서 3:
-Yukos unit buyer offers $9 bln-dlrs Yuganskneftegaz, the main production unit ...
-```
-
-② **BERTopic 모델 초기화 및 학습**
-
-```python
-# BERT 임베딩 모델 (Multilingual, 한국어 포함)
-print("\nBERT 임베딩 모델 로드 중...")
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# BERTopic 모델 초기화
-print("BERTopic 모델 초기화...")
-topic_model = BERTopic(
-    embedding_model=embedding_model,
-    language="english",
-    nr_topics="auto",  # 자동 주제 개수 결정
-    min_topic_size=10,  # 최소 10개 문서 이상의 주제만 인정
-    verbose=True
+# strategy 옵션:
+#   "distributions" : 토픽 확률 분포로 가장 가까운 토픽에 할당 (권장)
+#   "embeddings"    : 임베딩 코사인 유사도로 할당
+#   "c-tf-idf"      : 키워드 유사도로 할당
+new_topics = topic_model.reduce_outliers(
+    documents=documents,
+    topics=topics,
+    strategy="distributions",
 )
 
-# 모델 학습
-print("\nBERTopic 학습 중 (이 과정은 1~2분 소요)...")
-topics, probabilities = topic_model.fit_transform(documents)
-
-print(f"\n학습 완료!")
-print(f"발견된 주제 개수: {len(set(topics)) - (1 if -1 in topics else 0)}")
-print(f"노이즈 (명확한 주제 없는 문서): {sum(topics == -1)}개 ({sum(topics == -1) / len(topics) * 100:.1f}%)")
+# BERTopic 내부 토픽 정보 갱신 (이후 시각화/평가에 반영)
+topic_model.update_topics(documents, topics=new_topics)
 ```
 
-예상 결과:
-```
-BERT 임베딩 모델 로드 중...
+##### 적용 전후 비교 (예시)
 
-BERTopic 모델 초기화...
+**표 8.4** `reduce_outliers` 적용 전후 토픽별 문서 수 변화 (가상 결과)
 
-BERTopic 학습 중 (이 과정은 1~2분 소요)...
-2024-01-15 14:32:45 - Batches: 100%|██████████| 48/48 [00:23<00:00,  2.07it/s]
-2024-01-15 14:32:47 - Reduced dimensionality with UMAP
+| 토픽 | 자동 레이블        | 적용 전 | 적용 후 | 변화량 |
+| ---- | ------------------ | ------- | ------- | ------ |
+| -1   | (노이즈)           | 218     | 2       | -216   |
+| 0    | Computer Graphics  | 528     | 544     | +16    |
+| 1    | Sports/Baseball    | 462     | 468     | +6     |
+| 2    | Medical/Health     | 411     | 511     | +100   |
+| 3    | Politics           | 275     | 369     | +94    |
+| 합계 |                    | 1894    | 1894    |        |
 
-학습 완료!
-발견된 주제 개수: 6
-노이즈 (명확한 주제 없는 문서): 47개 (3.1%)
-```
+> **주의**: 재할당은 "**가장 가까운**" 토픽을 찾는 것이지 "**확실히 맞는**" 토픽을 찾는 것이 아니다. 적용 후에는 반드시 대표 문서를 다시 읽어 검증한다.
 
-③ **주제별 문서 개수 및 상위 단어 확인**
+#### 8.6.2 토픽 축소·병합 — `reduce_topics()`
+
+##### 직관
+
+HDBSCAN은 데이터의 밀도 구조를 보고 토픽 수를 **자동으로** 결정한다. 그래서 종종 **너무 잘게 쪼개진** 결과가 나온다. "프로야구"와 "축구"가 별도 토픽이지만, 보고서에는 **"스포츠"** 한 줄로 충분할 수 있다.
+
+`reduce_topics(nr_topics=K)`는 토픽 임베딩(c-TF-IDF 벡터) 사이의 **코사인 유사도**가 큰 순서로 토픽을 병합해 K개로 줄여준다. 키워드는 병합 후 **재계산**된다.
+
+##### 코드
 
 ```python
-# 주제별 정보
-topic_info = topic_model.get_topic_info()
-print("\n주제별 상위 단어:")
-for idx, row in topic_info.iterrows():
-    topic_id = row['Topic']
-    if topic_id == -1:
-        continue  # 노이즈는 건너뛰기
+# 현재 토픽 개수 확인
+before = topic_model.get_topic_info()
+print(f"원래 토픽 수: {len(before) - 1}")  # -1 노이즈 제외
 
-    count = row['Count']
-    words = row['Name']
-    print(f"\n주제 {topic_id} ({count}개 문서):")
-    print(f"  대표 단어: {words}")
+# 토픽 수를 4개로 축소
+topic_model.reduce_topics(documents, nr_topics=4)
 
-# 주제 분포 시각화
-topic_counts = pd.Series(topics).value_counts().sort_index()
-print("\n주제별 문서 개수 (상세):")
-for topic_id, count in topic_counts.items():
-    if topic_id == -1:
-        print(f"  노이즈: {count}")
-    else:
-        percentage = count / len(topics) * 100
-        print(f"  주제 {topic_id}: {count}개 ({percentage:.1f}%)")
+after = topic_model.get_topic_info()
+print(f"축소 후 토픽 수: {len(after) - 1}")
+print(after.head())
 ```
 
-예상 결과:
+##### 어떤 K를 고를까?
+
+`reduce_topics`로 무작정 줄이지 말고, **`visualize_hierarchy()`로 덴드로그램을 먼저 보고** 자연스러운 절단 높이를 결정하자. 가지가 길게 떨어진 곳을 자르면 의미 있는 그룹화가 유지된다.
+
+> **언제 쓰나**: (1) 토픽이 너무 많아 보고서로 옮기기 어렵다, (2) 비슷한 키워드 집합이 두세 개로 쪼개져 있다, (3) 상위 수준의 주제 구조를 먼저 파악하고 싶다.
+
+#### 8.6.3 Optuna 다목적 최적화 — "일관성↑ × 노이즈↓"
+
+##### 직관
+
+UMAP·HDBSCAN의 파라미터를 손으로 돌리는 건 비효율적이다. **Optuna**는 여러 트라이얼을 **베이지안 최적화**로 똑똑하게 탐색한다. 그리고 토픽 모델링은 본질적으로 **두 가지 목표가 충돌**한다.
+
+- **일관성(coherence)** ↑ : 토픽 키워드가 의미적으로 잘 뭉치게
+- **노이즈 비율** ↓ : -1로 빠지는 문서를 줄이게
+
+이 두 목표를 동시에 만족시키기 어렵다. 그래서 **다목적 최적화(multi-objective)**를 쓰고, 결과로 받는 것은 **파레토 프론트(Pareto front)**다.
+
+> **파레토 프론트란**: "한쪽을 더 좋게 하려면 다른 쪽이 반드시 나빠지는 지점들의 집합". 즉, 더 이상 일방적으로 개선할 수 없는 후보 해(解)들의 모음. 분석가는 이 곡선 위에서 **취향대로** 한 점을 고른다("일관성 0.55를 포기하더라도 노이즈를 5% 미만으로 잡고 싶다" 식으로).
+
+##### 코드 — 작은 trial로 데모 가능
+
+```python
+import optuna
+from bertopic import BERTopic
+from umap import UMAP
+from hdbscan import HDBSCAN
+
+def objective(trial):
+    n_neighbors      = trial.suggest_int("n_neighbors", 5, 25)
+    n_components     = trial.suggest_int("n_components", 2, 10)
+    min_cluster_size = trial.suggest_int("min_cluster_size", 5, 30)
+    min_samples      = trial.suggest_int("min_samples", 3, 20)
+
+    umap_model = UMAP(
+        n_neighbors=n_neighbors, n_components=n_components,
+        min_dist=0.0, metric="cosine", random_state=42,
+    )
+    hdbscan_model = HDBSCAN(
+        min_cluster_size=min_cluster_size, min_samples=min_samples,
+        metric="euclidean", cluster_selection_method="eom",
+    )
+    model = BERTopic(
+        embedding_model=embedding_model,
+        umap_model=umap_model, hdbscan_model=hdbscan_model,
+        calculate_probabilities=False, verbose=False,
+    )
+    topics, _ = model.fit_transform(documents)
+
+    coherence      = npmi_coherence(model, documents)            # ↑
+    outlier_ratio  = sum(1 for t in topics if t == -1) / len(topics)  # ↓
+    return coherence, outlier_ratio
+
+study = optuna.create_study(directions=["maximize", "minimize"])
+study.optimize(objective, n_trials=10, show_progress_bar=False)
+
+# 파레토 프론트 후보 출력
+for t in study.best_trials:
+    print(f"NPMI={t.values[0]:.3f}  noise={t.values[1]:.3f}  params={t.params}")
 ```
-주제별 상위 단어:
-주제 0 (287개 문서):
-  대표 단어: business_company_sales_market
 
-주제 1 (256개 문서):
-  대표 단어: sport_game_team_player
+##### 결과 해석 가이드
 
-주제 2 (198개 문서):
-  대표 단어: technology_data_software_system
+- **파레토 프론트 위의 한 점**을 분석 목적에 맞춰 고른다.
+- 노이즈 비율이 0인데 일관성이 너무 낮다면 → 토픽이 거대한 한두 덩어리로 뭉쳐졌을 가능성. `min_cluster_size`를 줄여 본다.
+- 일관성은 좋은데 노이즈가 30% 이상이면 → `reduce_outliers()`로 후처리한다(둘은 충돌이 아니라 보완 관계).
 
-주제 3 (154개 문서):
-  대표 단어: world_country_government_nation
-
-주제 4 (323개 문서):
-  대표 단어: political_election_party_government
-
-주제 5 (135개 문서):
-  대표 단어: entertainment_film_music_artist
-
-주제별 문서 개수 (상세):
-  주제 0: 287개 (19.1%)
-  주제 1: 256개 (17.1%)
-  주제 2: 198개 (13.2%)
-  주제 3: 154개 (10.3%)
-  주제 4: 323개 (21.5%)
-  주제 5: 135개 (9.0%)
-  노이즈: 47개 (3.1%)
-```
-
-**검증 체크리스트**:
-- [ ] 데이터셋이 성공적으로 로드되었는가? (1,500개 문서)
-- [ ] BERTopic 모델이 자동으로 주제를 발견했는가? (정상적으로는 4~8개 주제)
-- [ ] 각 주제의 대표 단어가 의미 있는가?
-- [ ] 노이즈(주제 없는 문서)가 합리적인 비율인가? (3~5% 정도)
-
-**Copilot 프롬프트 1**:
-```
-"BBC 뉴스 데이터셋을 Hugging Face datasets에서 로드해줄래?
-약 1,500개 문서를 가져와야 해."
-```
-
-**Copilot 프롬프트 2**:
-```
-"BERTopic을 초기화하고 학습하는 코드를 작성해줄래?
-SentenceTransformer는 'all-MiniLM-L6-v2'를 사용하고,
-자동으로 주제 개수를 결정하도록 설정해줘."
-```
+> **데모용 trial 수**: 강의용으로는 `n_trials=10` 정도면 충분히 직관을 보여준다. 실무에서는 50~100회를 돌린다.
 
 ---
 
-#### 체크포인트 2: 주제 시각화 + 결과 해석 (15분)
+### 8.7 동적 토픽 모델링 — 시간이 흐르면 주제는 어떻게 변하는가
 
-**목표**: BERTopic의 시각화 기능(Bar Chart, Heatmap, Network)을 생성하고, 각 주제의 의미를 해석한다
+#### 8.7.1 무엇을 푸는가
 
-**핵심 단계**:
+정적 토픽 모델은 "전체 기간에 걸친 큰 주제"는 보여주지만, **언제 그 주제가 떠올랐고 언제 사라졌는지**는 알려주지 않는다. 동적 토픽 모델링(Blei & Lafferty, 2006)은 문서에 **타임스탬프**를 부여해 시간대별 토픽 빈도를 추적한다.
 
-① **Bar Chart: 각 주제의 상위 단어**
+**활용 예시**:
 
-```python
-import matplotlib.pyplot as plt
+- 정책 시행 효과 모니터링 ("재택근무 의무화 이후 '화상회의' 토픽 빈도 변화")
+- 위기 대응 타이밍 ("코로나 확진 토픽이 언제 정점에 도달했는가")
+- 신제품 반응 추적 ("새 모델 출시 후 부정 키워드의 부상 시점")
+- 학술 트렌드 ("어떤 연구 주제가 부상하고 있는가")
 
-# Bar Chart 생성
-print("Bar Chart 생성 중...")
-fig = topic_model.visualize_barchart(top_n_topics=6, top_n_words=10)
-fig.write_html("practice/chapter8/data/output/topic_barchart.html")
-fig.show()
+#### 8.7.2 `topics_over_time()` — 한 줄 호출, 시계열 결과
 
-print("저장: practice/chapter8/data/output/topic_barchart.html")
-
-# Bar Chart 해석 보조
-print("\n각 주제의 상위 5개 단어:")
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
-    top_terms = topic_model.get_topic(topic_id)[:5]
-    terms_str = ", ".join([f"{term}({weight:.2f})" for term, weight in top_terms])
-    print(f"  주제 {topic_id}: {terms_str}")
-```
-
-예상 결과:
-```
-Bar Chart 생성 중...
-저장: practice/chapter8/data/output/topic_barchart.html
-
-각 주제의 상위 5개 단어:
-  주제 0: business(0.45), company(0.38), sales(0.35), market(0.32), growth(0.28)
-  주제 1: sport(0.52), game(0.46), team(0.41), player(0.38), season(0.32)
-  주제 2: technology(0.48), data(0.43), software(0.40), system(0.37), code(0.31)
-  주제 3: world(0.44), country(0.40), government(0.38), nation(0.35), state(0.30)
-  주제 4: political(0.49), election(0.44), party(0.41), government(0.39), vote(0.34)
-  주제 5: entertainment(0.50), film(0.45), music(0.42), artist(0.38), movie(0.35)
-```
-
-② **Heatmap: 주제-단어 가중치 행렬**
+##### 코드
 
 ```python
-# Heatmap 생성
-print("\nHeatmap 생성 중...")
-fig = topic_model.visualize_heatmap(top_n_topics=6, top_n_words=10)
-fig.write_html("practice/chapter8/data/output/topic_heatmap.html")
-fig.show()
+import pandas as pd
 
-print("저장: practice/chapter8/data/output/topic_heatmap.html")
+timestamps = pd.to_datetime(df["date"]).tolist()  # 문서별 타임스탬프
 
-# Heatmap 해석: 각 주제의 특징 강도
-print("\n주제별 특징 강도 (가중치 합계):")
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
-    top_terms = topic_model.get_topic(topic_id)[:10]
-    total_weight = sum([weight for _, weight in top_terms])
-    print(f"  주제 {topic_id}: {total_weight:.2f}")
+topics_over_time = topic_model.topics_over_time(
+    docs=documents,
+    timestamps=timestamps,
+    nr_bins=20,             # 시간을 몇 구간으로 나눌지
+    global_tuning=True,     # 토픽 단어를 전역 기준으로 보정
+    evolution_tuning=True,  # 인접 시점 단어 분포를 부드럽게
+)
+
+topic_model.visualize_topics_over_time(
+    topics_over_time, top_n_topics=5,
+).show()
 ```
 
-예상 결과:
-```
-Heatmap 생성 중...
-저장: practice/chapter8/data/output/topic_heatmap.html
+##### `nr_bins` 가이드
 
-주제별 특징 강도 (가중치 합계):
-  주제 0: 3.45
-  주제 1: 3.67
-  주제 2: 3.52
-  주제 3: 3.38
-  주제 4: 3.71
-  주제 5: 3.55
-```
+- 1년치 일별 데이터 → `nr_bins=12` (월별)
+- 3년치 데이터 → `nr_bins=36` (월별) 또는 `12` (분기별)
+- 데이터 양이 적은 시점이 있으면 빈이 비어 보일 수 있다 → bin을 더 넓게 잡는다.
 
-③ **Network Graph: 주제 간 유사도**
+#### 8.7.3 추세 5가지 패턴 — 무엇을 보아야 하는가
+
+**표 8.5** 동적 토픽의 추세 패턴
+
+| 패턴            | 모양                            | 해석 / 비즈니스 시나리오                          |
+| --------------- | ------------------------------- | ------------------------------------------------- |
+| **급격한 상승** | 짧은 기간에 빈도가 폭발적으로 ↑ | 새 이슈 발생, 위기, 바이럴 — 즉시 대응 필요         |
+| **점진적 상승** | 느리지만 꾸준히 ↑               | 장기 트렌드, 신규 시장 — 투자/기획 신호            |
+| **급격한 하락** | 짧은 기간에 빠르게 ↓            | 이슈 해결, 관심 이동 — 자원 재배분 신호             |
+| **주기적 변동** | 규칙적으로 ↑↓ 반복             | 계절성, 정기 이벤트 — 캘린더 기반 마케팅            |
+| **안정 (상시)** | 일정한 빈도 유지                | 지속 관심 주제 — "언제나 챙겨야 하는 주제"          |
+
+#### 8.7.4 토픽 간 시계열 상관 — 함께 움직이는 주제 찾기
+
+##### 직관
+
+"코로나" 토픽이 오를 때 "재택근무" 토픽도 같이 오른다면, 둘 사이에 **양의 상관**이 있다. 이런 신호는 단독 토픽 분석으로는 잡히지 않는다.
+
+##### 코드
 
 ```python
-# Network Graph 생성
-print("\nNetwork Graph 생성 중...")
-fig = topic_model.visualize_hierarchy()
-fig.write_html("practice/chapter8/data/output/topic_network.html")
-fig.show()
+# 토픽×시간 피벗 → 시계열 상관 행렬
+pivot_df = topics_over_time.pivot(
+    index="Timestamp", columns="Topic", values="Frequency",
+).fillna(0)
 
-print("저장: practice/chapter8/data/output/topic_network.html")
-
-# 주제 간 유사도 분석
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-
-# 각 주제의 중심 벡터 계산 (간단한 방식)
-print("\n주제 간 유사도 (코사인 거리):")
-topic_vectors = []
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
-    top_terms = topic_model.get_topic(topic_id)
-    # 단어 가중치를 벡터로 표현 (간단한 예시)
-    weights = [w for _, w in top_terms]
-    topic_vectors.append(np.array(weights))
-
-# 주제 0과 다른 주제들의 유사도
-if len(topic_vectors) > 1:
-    topic_0_vec = topic_vectors[0].reshape(1, -1)
-    for i in range(1, min(len(topic_vectors), 3)):
-        other_vec = topic_vectors[i].reshape(1, -1)
-        similarity = cosine_similarity(topic_0_vec, other_vec)[0, 0]
-        print(f"  주제 0 vs 주제 {i}: {similarity:.3f}")
+correlation_matrix = pivot_df.corr()
+print(correlation_matrix.round(2))
 ```
 
-예상 결과:
-```
-Network Graph 생성 중...
-저장: practice/chapter8/data/output/topic_network.html
+> **해석 팁**: 절대값이 0.7 이상이면 강한 동행/역행 관계. 0.3 미만은 거의 무관.
 
-주제 간 유사도 (코사인 거리):
-  주제 0 vs 주제 1: 0.156  (매우 다름)
-  주제 0 vs 주제 2: 0.234  (다름)
-```
+#### 8.7.5 토픽 생명 주기 — 출현 → 최고점 → 소멸
 
-④ **주제 의미 해석**
+##### 직관
+
+각 토픽이 **언제 처음 등장했고**(출현), **언제 가장 활발했고**(최고점), **언제 사라졌는지**(소멸)를 자동으로 찾는다. 마케팅·정책·연구에서 매우 강력한 인사이트.
+
+##### 자동 식별 함수
 
 ```python
-# 주제별 의미 해석
-interpretation = {
-    0: "비즈니스/경제: 기업 경영, 판매, 시장 동향",
-    1: "스포츠: 경기 결과, 선수, 리그",
-    2: "기술/IT: 소프트웨어, 데이터, 시스템",
-    3: "국제 뉴스: 국가, 정부, 세계 정세",
-    4: "정치: 선거, 정당, 정치 활동",
-    5: "엔터테인먼트: 영화, 음악, 예술"
+def analyze_topic_lifecycle(topics_over_time, topic_model, threshold=0.01):
+    """토픽의 출현·최고점·소멸 시점 자동 식별."""
+    lifecycle = {}
+    unique_topics = [t for t in topics_over_time["Topic"].unique() if t != -1]
+
+    for topic in unique_topics:
+        td = topics_over_time[topics_over_time["Topic"] == topic]
+
+        # 출현: 빈도가 임계값을 넘는 첫 시점
+        above = td[td["Frequency"] > threshold]
+        emergence = above.iloc[0]["Timestamp"] if len(above) > 0 else None
+
+        # 최고점: 빈도가 최대인 시점
+        peak_idx = td["Frequency"].idxmax()
+        peak_t   = td.loc[peak_idx, "Timestamp"]
+        peak_f   = td.loc[peak_idx, "Frequency"]
+
+        # 소멸: 최고점 이후 임계값 밑으로 떨어진 첫 시점
+        after = td.loc[peak_idx:]
+        below = after[after["Frequency"] < threshold]
+        decline = below.iloc[0]["Timestamp"] if len(below) > 0 else None
+
+        lifecycle[topic] = {
+            "emergence": emergence,
+            "peak": peak_t,
+            "peak_frequency": peak_f,
+            "decline": decline,
+            "keywords": [w for w, _ in topic_model.get_topic(topic)[:5]],
+        }
+    return lifecycle
+```
+
+##### 결과 예시
+
+**표 8.6** 토픽 생명 주기 분석 결과 (예시)
+
+| 토픽         | 키워드            | 출현    | 최고점  | 소멸    | 패턴 해석                            |
+| ------------ | ----------------- | ------- | ------- | ------- | ------------------------------------ |
+| 코로나(확진) | 코로나, 방역, 확진 | 2020-01 | 2020-03 | 2021-06 | 팬데믹 초기 급부상 후 점진적 감소     |
+| 백신접종     | 백신, 접종, 면역  | 2020-11 | 2021-04 | -       | 백신 발표 후 지속적 관심              |
+| 화상회의     | 화상, 플랫폼, 재택 | 2020-03 | 2020-05 | 2021-03 | 거리두기 기간의 한시적 급증           |
+| 스마트폰     | 제품, 스마트폰    | -       | 2019-07 | -       | 안정적 상시 토픽                      |
+
+> **임계값 `threshold=0.01`**: 데이터 규모와 빈도 분포에 맞춰 조정. 빈도가 모두 작은 데이터에서는 더 낮춘다.
+
+---
+
+### 8.8 (선택) 멀티모달 토픽 모델링 — 텍스트 + 이미지
+
+> **이 절은 선택 학습이다**. CLIP 모델 다운로드(약 600MB)와 추가 의존성(`bertopic[vision]`)이 필요하다. 노트북에서는 옵션 셀로 분기되어 있어, 데이터·환경이 준비되지 않으면 자동으로 스킵된다.
+
+#### 8.8.1 무엇을 푸는가
+
+소셜 미디어 게시물, 전자상거래 상품, 뉴스 기사 — 현실의 데이터는 **텍스트와 이미지가 짝**으로 존재한다. 멀티모달 토픽 모델링은 이 둘을 **같은 벡터 공간**에 두고 함께 분석한다.
+
+핵심은 **CLIP**(Radford et al., 2021)이다. CLIP은 텍스트와 이미지를 동일한 512차원 공간에 투영해 의미적으로 유사한 텍스트와 이미지가 가까운 위치에 오도록 학습되었다. "해변에서 서핑하는 사람"이라는 텍스트와 실제 서핑 이미지는 같은 동네에 모인다.
+
+#### 8.8.2 두 가지 시나리오
+
+**표 8.7** BERTopic 멀티모달 시나리오
+
+| 시나리오          | 입력           | 임베딩 방식                              | 활용 사례         |
+| ----------------- | -------------- | ---------------------------------------- | ----------------- |
+| 텍스트 + 이미지    | 문서-이미지 쌍  | CLIP 결합 임베딩(텍스트·이미지 평균)      | 소셜 미디어, 상품 |
+| 이미지 단독        | 이미지만        | CLIP 이미지 임베딩 + 자동 캡션           | 의료 영상, 위성   |
+
+##### 시나리오 A — 텍스트 + 이미지 결합
+
+```python
+from bertopic import BERTopic
+from bertopic.backend import MultiModalBackend
+from bertopic.representation import VisualRepresentation
+
+embedding_model = MultiModalBackend("clip-ViT-B-32", batch_size=32)
+representation_model = {"Visual_Aspect": VisualRepresentation()}
+
+topic_model = BERTopic(
+    embedding_model=embedding_model,
+    representation_model=representation_model,
+    verbose=True,
+)
+topics, probs = topic_model.fit_transform(
+    documents=captions,    # 텍스트
+    images=image_paths,    # 이미지 경로 리스트
+)
+```
+
+> **결과의 직관**: "강아지와 산책" 캡션과 실제 산책 이미지가 같은 공간에서 가까워지므로, 텍스트만으로는 흐릿했던 "반려동물 일상" 토픽이 더 또렷하게 잡힌다.
+
+##### 시나리오 B — 이미지 단독 + 자동 캡션
+
+```python
+representation_model = {
+    "Visual_Aspect": VisualRepresentation(
+        image_to_text_model="nlpconnect/vit-gpt2-image-captioning",
+    )
 }
-
-print("\n주제별 의미 해석:")
-for topic_id, meaning in interpretation.items():
-    count = sum(1 for t in topics if t == topic_id)
-    print(f"  주제 {topic_id}: {meaning} (n={count})")
+topic_model = BERTopic(
+    embedding_model=embedding_model,
+    representation_model=representation_model,
+)
+topics, probs = topic_model.fit_transform(
+    documents=None,    # 텍스트 없음
+    images=images,
+)
 ```
 
-예상 결과:
-```
-주제별 의미 해석:
-  주제 0: 비즈니스/경제: 기업 경영, 판매, 시장 동향 (n=287)
-  주제 1: 스포츠: 경기 결과, 선수, 리그 (n=256)
-  주제 2: 기술/IT: 소프트웨어, 데이터, 시스템 (n=198)
-  주제 3: 국제 뉴스: 국가, 정부, 세계 정세 (n=154)
-  주제 4: 정치: 선거, 정당, 정치 활동 (n=323)
-  주제 5: 엔터테인먼트: 영화, 음악, 예술 (n=135)
-```
+이미지로 군집을 만든 뒤, 각 토픽의 대표 이미지에 **자동 캡션**을 붙여 사람이 읽을 수 있는 토픽 설명을 생성한다.
 
-**검증 체크리스트**:
-- [ ] Bar Chart가 각 주제의 상위 단어를 정확히 표시하는가?
-- [ ] Heatmap이 주제-단어 가중치를 시각화하는가?
-- [ ] Network Graph가 주제 간 유사도를 표현하는가?
-- [ ] 각 주제의 의미가 명확하게 해석되는가?
+#### 8.8.3 실무 적용 가이드
 
-**Copilot 프롬프트 3**:
-```
-"BERTopic 모델의 시각화 함수들을 사용해줄래?
-visualize_barchart(), visualize_heatmap(), visualize_hierarchy()를
-각각 실행하고 HTML 파일로 저장해줘."
-```
-
-**Copilot 프롬프트 4**:
-```
-"각 주제의 상위 단어를 출력하는 코드를 작성해줄래?
-topic_model.get_topic()을 사용해서 주제별로 상위 10개 단어를 표시해줘."
-```
+- **데이터**: 텍스트–이미지가 1:1로 정렬되어야 한다. 이미지를 224×224로 사전 정규화하면 처리 속도가 크게 빨라진다.
+- **모델 선택**: 일반 용도는 `clip-ViT-B/32` (가벼움), 정확도가 더 필요하면 `clip-ViT-L/14` (무거움). 패션·의료 등 도메인 특화 CLIP 모델도 존재한다.
+- **성능 최적화**: 임베딩을 미리 계산해서 디스크에 저장해두면 반복 분석 시 시간을 크게 줄일 수 있다. 이미지 I/O가 병목이면 병렬 처리.
+- **언제 쓸까?**: 텍스트만으로 토픽이 혼동될 때(예: "leather"가 재킷·신발·가방에 모두 나오는 경우) 시각적 형태가 토픽을 깔끔하게 분리해 준다.
 
 ---
 
-#### 체크포인트 3: 특정 문서 분석 + 품질 평가 (15분)
+### B회차 90분 실습 가이드
 
-**목표**: 특정 문서의 주제 분포를 분석하고, 토픽 모델링 결과의 품질을 정량적으로 평가한다
+#### 체크포인트 1 (25분) — 평가 → 노이즈 처리 → 토픽 병합
 
-**핵심 단계**:
+**수행 순서**:
 
-① **특정 문서의 주제 분포 분석**
+1. **NPMI** + **Topic Diversity** 계산 (A회차 라이브 코딩의 함수 그대로)
+2. `topic_model.reduce_outliers(documents, topics, strategy="distributions")` 실행
+3. 적용 전후 토픽별 문서 수 변화 표 생성 (CSV로 저장)
+4. `topic_model.visualize_hierarchy()` 로 덴드로그램 확인
+5. `topic_model.reduce_topics(documents, nr_topics=4)` 적용 후 키워드 변화 출력
 
-```python
-# 샘플 문서 선택
-sample_indices = [0, 100, 500, 1000]
+**산출물**:
 
-print("특정 문서의 주제 분포 분석:\n")
-for idx in sample_indices:
-    doc = documents[idx]
-    assigned_topic = topics[idx]
-    confidence = probabilities[idx]
+- `data/output/ch8B_outlier_reduction.csv` (전후 비교)
+- `data/output/ch8B_reduced_topic_keywords.json` (병합 후 키워드)
 
-    print(f"문서 #{idx}:")
-    print(f"  내용: {doc[:150]}...")
-    print(f"  할당된 주제: {assigned_topic}")
-    print(f"  신뢰도: {confidence:.3f}")
+**리포트 (1문단)**: 노이즈 재할당 후 어떤 토픽이 가장 많이 늘었는가? 병합 후 토픽 키워드가 더 명료해졌는가, 흐려졌는가?
 
-    # 이 문서가 각 주제에 속할 확률 계산 (근사)
-    doc_vec = embedding_model.encode(doc)
-    new_topics, new_probs = topic_model.transform([doc])
+#### 체크포인트 2 (25분) — Optuna 다목적 튜닝
 
-    print(f"  주제별 확률:")
-    for tid, prob in sorted(enumerate(new_probs[0]), key=lambda x: x[1], reverse=True)[:3]:
-        meaning = interpretation.get(tid, "Unknown")
-        print(f"    주제 {tid} ({meaning[:20]}...): {prob:.3f}")
-    print()
-```
+**수행 순서**:
 
-예상 결과:
-```
-특정 문서의 주제 분포 분석:
+1. `objective(trial)` 함수 작성 (NPMI 최대화, 노이즈 비율 최소화)
+2. `optuna.create_study(directions=["maximize", "minimize"])`로 study 생성
+3. `n_trials=10`으로 시범 최적화 (실무는 50~100, 강의는 10이면 충분)
+4. 파레토 프론트의 trial들을 출력하고, 그 중 한 점을 선택
+5. 선택한 파라미터로 BERTopic을 재학습한 결과의 평가지표 계산
 
-문서 #0:
-  내용: Ad sales boost Time Warner profit Quick jump in revenues To the delight...
-  할당된 주제: 0
-  신뢰도: 0.782
-  주제별 확률:
-    주제 0 (비즈니스/경제): 0.782
-    주제 4 (정치): 0.089
-    주제 3 (국제 뉴스): 0.045
+**산출물**:
 
-문서 #100:
-  내용: England Advance In Cricket World Cup India beat Australia by four wickets...
-  할당된 주제: 1
-  신뢰도: 0.856
-  주제별 확률:
-    주제 1 (스포츠): 0.856
-    주제 0 (비즈니스/경제): 0.078
-    주제 3 (국제 뉴스): 0.042
-```
+- `data/output/ch8B_optuna_pareto.csv` (파레토 프론트)
+- `data/output/ch8B_tuned_topic_info.csv`
 
-② **토픽 코히어런스(Coherence) 평가**
+**리포트 (1문단)**: 어떤 파라미터를 선택했고, 그 이유는? trade-off에서 어떤 가치(일관성/포괄성)를 우선했는가?
 
-```python
-# 토픽 코히어런스 계산 (각 주제의 내부 일관성)
-print("\n토픽 코히어런스 점수 (높을수록 좋음, 0~1):")
+#### 체크포인트 3 (25분) — 동적 토픽 + 생명 주기
 
-from sklearn.feature_extraction.text import CountVectorizer
+**수행 순서**:
 
-# 간단한 코히어런스 계산: 상위 단어들의 co-occurrence 기반
-def calculate_topic_coherence(topic_words, documents, window_size=10):
-    """
-    토픽의 상위 단어들이 문서에서 자주 함께 나타나는지 평가
-    """
-    from collections import defaultdict
+1. `topic_model.topics_over_time(documents, timestamps, nr_bins=12)` 실행
+2. `topic_model.visualize_topics_over_time(...)` HTML 저장
+3. 토픽 간 시계열 상관 행렬 계산 후, 절대값 0.5 이상인 토픽 쌍 찾기
+4. `analyze_topic_lifecycle()` 함수로 출현·최고점·소멸 식별
+5. 생명 주기 결과를 표 8.6 형식의 표로 정리
 
-    co_occurrence = defaultdict(int)
-    total_pairs = 0
+**산출물**:
 
-    for doc in documents:
-        words = doc.lower().split()
-        for i, word in enumerate(words):
-            if word in topic_words:
-                for j in range(max(0, i-window_size), min(len(words), i+window_size+1)):
-                    if i != j and words[j] in topic_words:
-                        co_occurrence[(word, words[j])] += 1
-                        total_pairs += 1
+- `data/output/ch8B_topics_over_time.csv`
+- `data/output/ch8B_topic_correlation.csv`
+- `data/output/ch8B_topic_lifecycle.csv`
+- `data/output/ch8B_topics_over_time.html`
 
-    if total_pairs == 0:
-        return 0.0
+**리포트 (1문단)**: 가장 인상적인 추세 패턴(5가지 중 어떤 것)은 어느 토픽에서 관찰되는가? 그 패턴이 데이터의 도메인 사건과 어떻게 연결되는가?
 
-    # 코히어런스: co-occurrence의 총합 / (가능한 모든 쌍의 수)
-    coherence = sum(co_occurrence.values()) / (len(topic_words) * (len(topic_words) - 1) * total_pairs)
-    return min(coherence * 100, 1.0)  # 0~1 범위로 정규화
+#### (선택) 체크포인트 4 (15분) — CLIP 멀티모달 시연
 
-# 각 주제의 코히어런스 계산
-topic_coherences = {}
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
+조건: `bertopic[vision]` 설치 가능 + 디스크 ~1GB 여유 + 텍스트-이미지 쌍 데이터.
 
-    top_terms = topic_model.get_topic(topic_id)
-    topic_words = set([word for word, _ in top_terms[:5]])
+**수행 순서**:
 
-    # 간단한 코히어런스: 상위 5개 단어가 함께 나타나는 비율
-    co_count = 0
-    doc_with_multiple = 0
+1. `MultiModalBackend("clip-ViT-B-32")` 초기화
+2. 텍스트+이미지 결합 시나리오로 BERTopic 학습
+3. 토픽별 대표 키워드 + 대표 이미지 출력
 
-    for doc in documents:
-        doc_words = set(doc.lower().split())
-        overlap = len(topic_words & doc_words)
-        if overlap >= 2:
-            doc_with_multiple += 1
-        co_count += overlap
-
-    coherence = doc_with_multiple / len(documents) if documents else 0
-    topic_coherences[topic_id] = coherence
-    print(f"  주제 {topic_id}: {coherence:.3f}")
-
-avg_coherence = np.mean(list(topic_coherences.values()))
-print(f"\n평균 토픽 코히어런스: {avg_coherence:.3f}")
-```
-
-예상 결과:
-```
-토픽 코히어런스 점수 (높을수록 좋음, 0~1):
-  주제 0: 0.487
-  주제 1: 0.523
-  주제 2: 0.456
-  주제 3: 0.412
-  주제 4: 0.534
-  주제 5: 0.468
-
-평균 토픽 코히어런스: 0.480
-```
-
-③ **주제 다양성(Diversity) 평가**
-
-```python
-# 주제 다양성: 각 주제의 상위 단어가 서로 겹치지 않는 정도
-print("\n주제 다양성 평가:")
-
-# 모든 주제의 상위 단어 수집
-all_topic_words = set()
-topic_unique_words = {}
-
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
-
-    top_terms = topic_model.get_topic(topic_id)
-    top_words = set([word for word, _ in top_terms[:10]])
-    topic_unique_words[topic_id] = top_words
-    all_topic_words.update(top_words)
-
-# 다양성: 각 주제의 고유한 단어 비율
-print("\n주제별 고유 단어 비율:")
-total_unique = 0
-for topic_id in range(len(set(topics)) - 1):
-    if topic_id not in topics:
-        continue
-
-    unique_count = len(topic_unique_words[topic_id])
-    for other_id in range(len(set(topics)) - 1):
-        if other_id != topic_id and other_id in topic_unique_words:
-            unique_count -= len(topic_unique_words[topic_id] & topic_unique_words[other_id])
-
-    diversity = unique_count / 10  # 상위 10개 단어 기준
-    total_unique += unique_count
-    print(f"  주제 {topic_id}: {diversity:.1%} 고유 단어")
-
-# 전체 다양성
-overall_diversity = len(all_topic_words) / (len(set(topics)) - 1) / 10
-print(f"\n전체 주제 다양성 점수: {overall_diversity:.3f}")
-```
-
-예상 결과:
-```
-주제별 고유 단어 비율:
-  주제 0: 80.0% 고유 단어
-  주제 1: 90.0% 고유 단어
-  주제 2: 70.0% 고유 단어
-  주제 3: 85.0% 고유 단어
-  주제 4: 95.0% 고유 단어
-  주제 5: 75.0% 고유 단어
-
-전체 주제 다양성 점수: 0.825
-```
-
-④ **품질 평가 종합**
-
-```python
-# 토픽 모델링 품질 종합 평가
-print("\n=== 토픽 모델링 품질 평가 종합 ===\n")
-
-quality_metrics = {
-    "발견된 주제 개수": len(set(topics)) - (1 if -1 in topics else 0),
-    "평균 토픽 코히어런스": avg_coherence,
-    "전체 주제 다양성": overall_diversity,
-    "할당 성공률": f"{(1 - sum(topics == -1) / len(topics)) * 100:.1f}%",
-    "최대 주제 크기": f"{max([sum(topics == t) for t in set(topics) if t != -1])} 문서",
-    "최소 주제 크기": f"{min([sum(topics == t) for t in set(topics) if t != -1])} 문서"
-}
-
-for metric, value in quality_metrics.items():
-    print(f"{metric}: {value}")
-
-# 최종 평가
-print("\n평가:")
-if avg_coherence > 0.5 and overall_diversity > 0.8:
-    print("  ✓ 우수: 주제의 내부 일관성과 다양성이 모두 우수함")
-elif avg_coherence > 0.4 and overall_diversity > 0.7:
-    print("  ○ 양호: 기본적으로 타당한 주제 발견")
-else:
-    print("  ✗ 개선 필요: 하이퍼파라미터 조정 필요")
-```
-
-예상 결과:
-```
-=== 토픽 모델링 품질 평가 종합 ===
-
-발견된 주제 개수: 6
-평균 토픽 코히어런스: 0.480
-전체 주제 다양성: 0.825
-할당 성공률: 96.9%
-최대 주제 크기: 323 문서
-최소 주제 크기: 135 문서
-
-평가:
-  ○ 양호: 기본적으로 타당한 주제 발견
-```
-
-**검증 체크리스트**:
-- [ ] 샘플 문서들의 주제 할당이 의미 있는가?
-- [ ] 토픽 코히어런스 점수가 합리적인 범위인가? (0.4~0.6)
-- [ ] 주제 다양성이 충분한가? (0.7 이상)
-- [ ] 할당 성공률이 높은가? (90% 이상)
-
-**Copilot 프롬프트 5**:
-```
-"특정 문서의 주제를 분석하고, 그 문서의 각 주제별 확률을 계산해줄래?
-embedding_model.encode()와 topic_model.transform()을 사용해줘."
-```
-
-**Copilot 프롬프트 6**:
-```
-"토픽 모델링의 품질을 평가하는 지표들(코히어런스, 다양성, 할당 성공률)을
-계산하고 출력하는 함수를 만들어줄 수 있어?"
-```
-
-**선택 프롬프트**:
-```
-"주제들 간의 유사도를 계산해서 거리 행렬로 표현하고,
-heatmap으로 시각화할 수 있어?"
-```
+**리포트 (1문단)**: 텍스트 단독 분석 대비 토픽이 어떻게 달라졌는가?
 
 ---
 
-### 제출 안내 (Google Classroom)
+### 제출물 체크리스트
 
-**제출 방법**:
-- Google Classroom의 "8주차 B회차" 과제에 조별 1부 제출
-- 파일명 형식: `group_{조번호}_ch8B.zip`
+- [ ] 노트북(`practice/chapter8/8A-topic-modeling-assignment.ipynb`) 모든 셀 실행 완료
+- [ ] `data/output/`에 산출물 CSV/JSON/HTML 저장
+- [ ] 분석 리포트 (체크포인트별 1문단씩, 총 3~4문단)
+- [ ] (선택) CLIP 시연 결과 캡처
 
-**포함할 파일**:
-```
-group_{조번호}_ch8B/
-├── ch8B_bertopic.py              # 전체 구현 코드
-├── topic_barchart.html            # Bar Chart 시각화
-├── topic_heatmap.html             # Heatmap 시각화
-├── topic_network.html             # Network Graph 시각화
-├── topic_coherence_scores.txt     # 코히어런스 점수
-└── report.md                      # 분석 리포트 (2~3페이지)
-```
+### Copilot 활용 가이드
 
-**리포트 포함 항목** (report.md):
-- 각 체크포인트의 구현 과정 및 어려웠던 점 (3~4문장)
-- 발견된 주제들의 의미 해석: "각 주제가 어떤 뉴스를 다루는가?" (3~4문장)
-- Bar Chart와 Heatmap 해석: "각 주제의 특징 단어 분석" (2~3문장)
-- 토픽 모델링 품질 평가: "코히어런스와 다양성 점수를 기준으로 결과 평가" (2~3문장)
-- 특정 문서 분석 사례: "실제 뉴스 기사의 주제 분포 해석" (2~3문장)
-- 개선 방안 제안: "더 나은 결과를 위해 수정할 수 있는 부분?" (2문장)
-- Copilot 사용 경험: "어떤 프롬프트가 효과적이었는가?" (2문장)
+A회차와 달리 B회차에서는 보조 도구로 Copilot을 사용해도 좋다. 단, **결과 해석은 본인이 직접** 작성한다.
 
-**제출 마감**: 수업 종료 후 24시간 이내
+- 기본: "이 노이즈 토픽들을 가장 가까운 토픽에 재할당해줘"
+- 심화: "Optuna 다목적 최적화의 파레토 프론트를 matplotlib로 시각화해줘"
+- 검증: "이 토픽 간 상관관계가 통계적으로 유의한지 확인하는 코드를 추가해줘"
 
----
+### 평가 루브릭 (참고)
 
-### 결과 토론 가이드
-
-> **토론 가이드**: 조별 구현 결과를 공유하며, 발견된 주제들을 해석하고, 다른 조의 결과와 비교하며, 토픽 모델링 품질을 함께 평가한다
-
-**토론 주제**:
-
-① **주제 발견의 일관성**
-- 같은 데이터로도 조마다 주제 개수가 다를 수 있다 (min_topic_size 등의 설정 차이)
-- "왜 우리 조는 5개, 다른 조는 7개의 주제를 발견했을까?"
-- 하이퍼파라미터 설정이 결과에 미치는 영향 논의
-
-② **주제 의미 해석의 타당성**
-- 각 조가 해석한 주제의 의미가 일관성 있는가?
-- 예: 조 A는 "주제 2 = 기술", 조 B는 "주제 2 = 과학"이라 해석
-- 상위 단어들을 근거로 해석 타당성 평가
-
-③ **노이즈와 애매한 문서**
-- 어떤 문서들이 어떤 주제에도 명확히 할당되지 않았는가? (노이즈)
-- 예: "경제-정치 혼합 뉴스", "여러 주제를 다룬 종합 뉴스"
-- 이런 경계 케이스를 어떻게 해석할 것인가?
-
-④ **시각화 해석 비교**
-- Bar Chart에서 각 주제의 상위 단어가 실제로 그 주제를 대표하는가?
-- Network Graph에서 어떤 주제들이 가까운가? (왜 그럴까?)
-- 예: "비즈니스"와 "경제"는 유사하지만, "스포츠"와 "기술"은 거리가 멈
-
-⑤ **품질 평가의 기준**
-- 토픽 코히어런스 점수가 0.48인 것은 좋은가, 나쁜가?
-- 다른 도메인(소셜 미디어, 학술 논문)에서는 어떨까?
-- "현실적으로 어느 정도 점수면 실용적인가?"
-
-⑥ **실무 적용 시사**
-- 실제 뉴스사가 토픽 모델링을 어떻게 활용할까?
-- 자동 태깅? 추천 시스템? 트렌드 분석?
-- 9주차(LDA 비교 학습)에 어떻게 연결될까?
-
-**발표 형식**:
-- 각 조 3~5분 발표 (발견된 주제 소개 + 품질 평가 결과)
-- 다른 조의 질문에 답변 (2~3개 질문)
-- 교수의 보충 설명 및 피드백
+| 기준                  | 우수                                              | 보통                              | 미흡             |
+| --------------------- | ------------------------------------------------- | --------------------------------- | ---------------- |
+| 노이즈 처리/병합 적용  | 전후 변화를 표로 비교 + 해석                      | 적용만 함                         | 미적용           |
+| Optuna 튜닝           | 파레토 프론트 분석 + 선택 근거 제시               | 단일 trial 결과만 보고             | 실행 실패        |
+| 동적/생명주기 분석     | 패턴 분류 + 도메인 해석 + 상관관계 발견            | 빈도 그래프만 제시                | 그래프 누락      |
+| 산출물 정리            | 모든 CSV/HTML/리포트 완비                         | 일부 누락                         | 다수 누락        |
+| 리포트                | 결과를 정량적·정성적으로 모두 해석                 | 결과만 나열                       | 해석 없음        |
 
 ---
 
@@ -763,41 +480,34 @@ group_{조번호}_ch8B/
 
 **문제 (1문항)**:
 
-다음 중 BERTopic 파이프라인에서 HDBSCAN 클러스터링의 역할로 가장 정확한 것은?
+다음 중 BERTopic 후처리 메서드에 대한 설명으로 **잘못된** 것은?
 
-① BERT 임베딩을 생성하여 문서를 벡터 공간에 배치한다
-② 고차원 벡터를 저차원으로 축소하여 거리 개념을 명확하게 한다
-③ 축소된 벡터 공간에서 밀도 기반으로 의미론적으로 비슷한 문서들을 같은 주제로 그룹화하며, 주제 개수를 자동 결정한다
-④ 각 클러스터의 특징 단어를 c-TF-IDF로 추출한다
+① `reduce_outliers(strategy="distributions")`는 -1로 분류된 문서를 토픽 확률 분포 기준으로 가장 유사한 토픽에 재할당한다
+② `reduce_topics(nr_topics=K)`는 c-TF-IDF 벡터 간 코사인 유사도가 큰 토픽들을 우선 병합한다
+③ Optuna 다목적 최적화는 일관성과 노이즈 비율 둘 다를 *동시에 같은 방향으로 최대화*한다
+④ 파레토 프론트의 한 점을 고른다는 것은 두 목표 사이의 trade-off 중 하나를 명시적으로 선택한다는 뜻이다
 
-**정답: ③**
+정답: **③**
 
-**설명**: BERTopic의 4단계를 정확히 이해하고 있는가를 평가하는 문제다.
-- ①은 Stage 1 (Document Embedding)의 역할
-- ②는 Stage 2 (Dimensionality Reduction)의 역할
-- ③은 Stage 3 (Clustering)의 역할 — HDBSCAN의 핵심 가치는 "밀도 기반 클러스터링"과 "자동 주제 개수 결정"
-- ④는 Stage 4 (Topic Representation)의 역할
-
-HDBSCAN을 선택한 이유는 K-means처럼 주제 개수(K)를 미리 정할 필요가 없기 때문이다.
+**설명**: 일관성은 **최대화**(`maximize`), 노이즈 비율은 **최소화**(`minimize`) — 두 목표는 방향이 다르고, 흔히 서로 충돌한다. Optuna는 두 목표를 동시에 같은 방향으로 끌어당기는 게 아니라, 어느 한쪽을 양보하지 않고서는 다른 쪽을 더 개선할 수 없는 후보들의 집합(파레토 프론트)을 보여준다. 분석가는 이 곡선 위에서 자신의 목적에 맞는 점을 고른다(④).
 
 ---
 
-## 참고 자료
+## 더 알아보기
 
-**실습 코드**:
-- _전체 코드는 practice/chapter8/code/8-2-bertopic-analysis.py 참고_
-- _샘플 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
-
-**권장 읽기**:
-- Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. *arXiv*. https://arxiv.org/abs/2203.05556
-- McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. *arXiv*. https://arxiv.org/abs/1802.03426
-- Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. *ICLR*. https://arxiv.org/abs/1810.04805
+- Grootendorst, M. (2022). _BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure_. arXiv. https://arxiv.org/abs/2203.05556
+- Akiba, T. et al. (2019). _Optuna: A Next-generation Hyperparameter Optimization Framework_. KDD. https://arxiv.org/abs/1907.10902
+- Blei, D. M., & Lafferty, J. D. (2006). _Dynamic Topic Models_. ICML. https://dl.acm.org/doi/10.1145/1143844.1143859
+- Radford, A. et al. (2021). _Learning Transferable Visual Models From Natural Language Supervision (CLIP)_. ICML. https://arxiv.org/abs/2103.00020
+- BERTopic 공식 문서 (시각화·동적·멀티모달 가이드): https://maartengr.github.io/BERTopic/
 
 ---
 
-**라이브러리 설치**:
-```bash
-pip install bertopic sentence-transformers datasets scikit-learn umap-learn hdbscan
-```
+## 참고문헌
 
----
+1. Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. _arXiv preprint_. https://arxiv.org/abs/2203.05556
+2. Blei, D. M., & Lafferty, J. D. (2006). Dynamic Topic Models. _ICML_, 113-120.
+3. Akiba, T., Sano, S., Yanase, T., Ohta, T., & Koyama, M. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. _KDD_, 2623-2631.
+4. Radford, A. et al. (2021). Learning Transferable Visual Models From Natural Language Supervision. _ICML_, 8748-8763.
+5. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. _EMNLP_. https://arxiv.org/abs/1908.10084
+6. Röder, M., Both, A., & Hinneburg, A. (2015). Exploring the Space of Topic Coherence Measures. _WSDM_, 399-408.
