@@ -957,18 +957,3 @@ _전체 코드는 practice/chapter8/code/8-1-bertopic-pipeline.py 참고_
 모든 방법은 `practice/chapter8/8A-topic-modeling-assignment.ipynb`에서 **직접 실행**해 결과를 확인한다.
 
 ---
-
-## 참고문헌
-
-1. Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent Dirichlet Allocation. _Journal of Machine Learning Research_, 3, 993-1022. https://jmlr.csail.mit.edu/papers/v3/blei03a.html
-2. Grootendorst, M. (2022). BERTopic: Neural Topic Modeling with a Class-based TF-IDF procedure. _arXiv preprint_. https://arxiv.org/abs/2203.05556
-3. McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction. _arXiv preprint_. https://arxiv.org/abs/1802.03426
-4. Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based Clustering based on Hierarchical Density Estimates. _Pacific-Asia Conference on Knowledge Discovery and Data Mining (PAKDD)_, 160-172.
-5. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. _ICLR_. https://arxiv.org/abs/1810.04805
-6. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. _EMNLP_. https://arxiv.org/abs/1908.10084
-7. Angelov, D. (2020). Top2Vec: Distributed Representations of Topics. _arXiv_. https://arxiv.org/abs/2008.09470
-8. Bianchi, F., Terragni, S., & Hovy, D. (2021). Pre-training is a Hot Topic: Contextualized Document Embeddings Improve Topic Coherence (CTM). _ACL_. https://aclanthology.org/2021.acl-short.96/
-9. Dieng, A. B., Ruiz, F. J. R., & Blei, D. M. (2020). Topic Modeling in Embedding Spaces (ETM). _TACL_. https://aclanthology.org/2020.tacl-1.29/
-10. Akiba, T. et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. _KDD_. https://arxiv.org/abs/1907.10902
-11. Radford, A. et al. (2021). Learning Transferable Visual Models From Natural Language Supervision (CLIP). _ICML_. https://arxiv.org/abs/2103.00020
-12. Röder, M., Both, A., & Hinneburg, A. (2015). Exploring the Space of Topic Coherence Measures. _WSDM_. https://dl.acm.org/doi/10.1145/2684822.2685324
