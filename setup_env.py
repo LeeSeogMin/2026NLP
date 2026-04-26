@@ -11,6 +11,93 @@ import sys
 import subprocess
 import platform
 import importlib.util
+import shutil
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).resolve().parent
+VENV_DIR = ROOT_DIR / ".venv"
+
+
+def venv_python_path():
+    """루트 가상환경의 Python 실행 파일 경로"""
+    if platform.system() == "Windows":
+        return VENV_DIR / "Scripts" / "python.exe"
+    return VENV_DIR / "bin" / "python"
+
+
+def is_compatible_python(executable):
+    """NLP 패키지 휠 호환성을 고려한 Python 버전 확인"""
+    try:
+        result = subprocess.run(
+            [
+                str(executable),
+                "-c",
+                "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except Exception:
+        return False
+
+    major, minor = map(int, result.stdout.strip().split("."))
+    return major == 3 and 8 <= minor <= 12
+
+
+def choose_python_for_venv():
+    """가상환경 생성에 사용할 Python 선택"""
+    if is_compatible_python(sys.executable):
+        return Path(sys.executable)
+
+    for name in ("python3.12", "python3.11", "python3.10", "python3.9", "python3.8"):
+        path = shutil.which(name)
+        if path and is_compatible_python(path):
+            return Path(path)
+
+    return None
+
+
+def running_inside_root_venv():
+    """현재 Python이 루트 .venv 안에서 실행 중인지 확인"""
+    try:
+        return Path(sys.prefix).resolve() == VENV_DIR.resolve()
+    except Exception:
+        return False
+
+
+def ensure_root_virtualenv():
+    """루트 .venv를 만들고, 현재 프로세스를 그 Python으로 재실행"""
+    if running_inside_root_venv():
+        return
+
+    print_section("Step 0: 루트 가상환경 준비")
+
+    python_for_venv = choose_python_for_venv()
+    if python_for_venv is None:
+        print("  ✗ Python 3.8~3.12 실행 파일을 찾지 못했습니다.")
+        print("    BERTopic/HDBSCAN 등 일부 NLP 패키지는 최신 Python에서 휠 지원이 늦을 수 있습니다.")
+        print("    python3.12 또는 python3.11 설치 후 다시 실행하세요.")
+        sys.exit(1)
+
+    if VENV_DIR.exists():
+        print(f"  ✓ 기존 가상환경 사용: {VENV_DIR}")
+    else:
+        print(f"  - 가상환경 생성: {VENV_DIR}")
+        print(f"    Python: {python_for_venv}")
+        subprocess.check_call([str(python_for_venv), "-m", "venv", str(VENV_DIR)])
+
+    venv_python = venv_python_path()
+    if not venv_python.exists():
+        print(f"  ✗ 가상환경 Python을 찾지 못했습니다: {venv_python}")
+        sys.exit(1)
+
+    print("  - pip 업그레이드 중...")
+    subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
+
+    print("  - 루트 가상환경 안에서 setup_env.py 재실행")
+    os.execv(str(venv_python), [str(venv_python), str(Path(__file__).resolve())])
 
 
 def print_section(title):
@@ -20,15 +107,15 @@ def print_section(title):
 
 
 def check_python_version():
-    """Python 버전 확인 (3.8 이상 필요)"""
+    """Python 버전 확인 (3.8~3.12 권장/필수)"""
     v = sys.version_info
     version_str = f"{v.major}.{v.minor}.{v.micro}"
 
-    if v.major >= 3 and v.minor >= 8:
+    if v.major == 3 and 8 <= v.minor <= 12:
         print(f"  ✓ Python {version_str}")
         return True
     else:
-        print(f"  ✗ Python {version_str} (3.8 이상 필요)")
+        print(f"  ✗ Python {version_str} (3.8~3.12 필요)")
         return False
 
 
@@ -103,6 +190,7 @@ def install_dependencies():
         "matplotlib",
         "transformers",
         "tqdm",
+        "ipykernel",
     ]
 
     print(f"  - 필수 패키지 확인/설치 중...")
@@ -133,6 +221,7 @@ def verify_installation():
         "numpy": "NumPy",
         "matplotlib": "Matplotlib",
         "transformers": "Transformers",
+        "ipykernel": "IPython Kernel",
     }
 
     all_ok = True
@@ -146,6 +235,30 @@ def verify_installation():
             all_ok = False
 
     return all_ok
+
+
+def register_jupyter_kernel():
+    """루트 가상환경을 Jupyter 커널로 등록"""
+    try:
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "ipykernel",
+                "install",
+                "--user",
+                "--name",
+                "2026nlp",
+                "--display-name",
+                "2026NLP",
+            ],
+            stdout=subprocess.DEVNULL,
+        )
+        print("    ✓ Jupyter 커널 등록: 2026NLP")
+        return True
+    except Exception as e:
+        print(f"    ! Jupyter 커널 등록 스킵: {e}")
+        return False
 
 
 def benchmark(device_type):
@@ -186,11 +299,14 @@ def benchmark(device_type):
 
 
 def main():
+    ensure_root_virtualenv()
+
     print(f"{'='*60}")
     print(f"딥러닝 자연어처리 — 환경 구축")
     print(f"{'='*60}")
     print(f"  OS: {platform.system()} {platform.machine()}")
     print(f"  Python: {sys.version.split()[0]}")
+    print(f"  가상환경: {VENV_DIR}")
 
     # Step 1
     print_section("Step 1: Python 버전 확인")
@@ -221,7 +337,11 @@ def main():
         return False
 
     # Step 6
-    print_section("Step 6: 벤치마크")
+    print_section("Step 6: Jupyter 커널 등록")
+    register_jupyter_kernel()
+
+    # Step 7
+    print_section("Step 7: 벤치마크")
     try:
         benchmark(device_type)
     except Exception as e:
@@ -233,7 +353,10 @@ def main():
     device_map = {"cuda": "cuda", "mps": "mps", "cpu": "cpu"}
     print(f"  디바이스: torch.device('{device_map[device_type]}')")
     print(f"\n  다음 단계:")
-    print(f"    python practice/chapter1/code/1-1-자연어처리소개.py")
+    print(f"    source .venv/bin/activate")
+    print(f"    jupyter notebook")
+    print(f"    # 노트북에서 커널을 '2026NLP'로 선택")
+    print(f"    python practice/chapter1/code/1-2-환경설정.py")
     print(f"{'='*60}")
     return True
 
