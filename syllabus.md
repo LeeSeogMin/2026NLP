@@ -268,19 +268,21 @@
 
 ---
 
-### 10주차: LLM 파인튜닝 (2) — PEFT와 LoRA
+### 10주차: 모델 경량화와 효율적 튜닝 — PEFT, LoRA, QLoRA
 
-**미션**: 수업이 끝나면 GPU 메모리 1/10로 거대 모델을 파인튜닝한다.
+**미션**: 수업이 끝나면 LLM 경량화 기법의 전체 지형을 이해하고, QLoRA로 거대 모델을 8GB GPU에서 파인튜닝할 수 있다.
 
 **A회차 주요 내용**
+- 모델 경량화 개요: 가지치기(Pruning), 지식 증류(Knowledge Distillation)
 - PEFT 개념: Adapter Layers, Prefix Tuning, Prompt Tuning
 - LoRA 수학: ΔW = AB (저랭크 분해), rank 선택, 파라미터 절감 효과
 - QLoRA: 4-bit 양자화(NF4) + Double Quantization, bitsandbytes
+- 실무 선택 가이드: 상황별 경량화-튜닝 전략
 
 **B회차 실습**
-- PEFT 라이브러리로 LoRA 설정 및 적용
-- QLoRA 환경 설정, 대형 모델(Llama, Mistral) 파인튜닝
-- Full FT vs LoRA vs QLoRA 성능·메모리 비교
+- QLoRA 환경 자동 구성 + OPT-1.3B 모델 파인튜닝
+- Full FT vs LoRA vs QLoRA 메모리·성능 비교
+- 파인튜닝 모델 추론 테스트
 
 ---
 

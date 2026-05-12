@@ -54,7 +54,7 @@
 
 **직관적 이해**: 대학교 출신의 지원자를 회사에서 재교육한다고 생각해 보자. 대학에서 배운 교양 지식(일반적 언어능력)은 이미 갖추었으므로, 회사에 필요한 구체적 기술(의료 도메인 용어와 패턴)만 집중적으로 교육하면 된다. 처음부터 모든 것을 가르치는 것보다 훨씬 빠르고 효율적이다.
 
-**파인튜닝(Fine-tuning)**은 바로 이 개념이다. 사전학습된 모델의 **모든 파라미터를 업데이트**하되, 도메인 특화 데이터로 짧은 기간 학습하여 태스크에 맞게 조정한다.
+**파인튜닝(Fine-tuning)**은 바로 이 개념이다. 사전학습된 모델을 도메인 또는 태스크 특화 데이터로 추가 학습하여 원하는 용도에 맞게 조정한다. 이 회차에서 다루는 **Full Fine-tuning**은 그중에서도 모델의 **모든 파라미터를 업데이트**하는 방식이다.
 
 **그래서 무엇이 달라지는가?**
 
@@ -68,6 +68,8 @@
 - 마스킹된 단어 예측 (BERT: Masked Language Modeling, MLM)
 - 다음 문장 예측 (BERT: Next Sentence Prediction, NSP)
 - 다음 토큰 예측 (GPT: Causal Language Modeling)
+
+세 예측의 차이는 **무엇을 예측하느냐**에 있다. **MLM**은 문장 안의 일부 단어를 `[MASK]`로 가리고 그 자리에 들어갈 단어를 맞힌다. **NSP**는 두 문장이 실제로 이어지는 문장쌍인지 판단한다. **다음 토큰 예측**은 지금까지 나온 토큰들을 보고 바로 다음 토큰을 하나씩 예측한다. 중요한 차이는 BERT는 기본적으로 이해 중심 모델이라 문장 전체를 양방향으로 보고 관계를 판단하고, GPT는 생성 중심 모델이라 앞에서부터 하나씩 다음 토큰을 예측하며 문장을 만들어 간다는 점이다.
 
 수조 개의 다양한 문서에서 이런 일반적 패턴을 학습하면, 모델은 문법, 상식, 관계 추론 능력을 갖춘다.
 
@@ -87,6 +89,8 @@ flowchart LR
 - 개체명 인식 (Named Entity Recognition)
 - 질의응답 (Question Answering)
 - 의료 차트 분류 (도메인 특화)
+
+예를 들어 **의료 차트 분류**는 환자의 진료 기록, 검사 수치, 증상 서술을 읽고 "당뇨병 위험", "응급도 높음", "입원 필요"처럼 의료 현장에서 필요한 범주로 문서를 분류하는 태스크이다. 일반 문서가 아니라 의료 용어와 병원 기록 형식에 맞춰 모델을 조정해야 하므로 **도메인 특화 파인튜닝**의 대표적인 예가 된다.
 
 작은 도메인 데이터(수백~수만 문장)에서 파인튜닝하면, 모델의 표현이 그 태스크에 최적화된다.
 
@@ -142,6 +146,32 @@ Full Fine-tuning의 절차:
 2. **Classification Head 추가**: 원래 모델의 출력층([CLS] 토큰 표현)에 선형 층을 추가하여 도메인 태스크에 맞춘다. 예: 의료 차트 5개 클래스 분류 → Linear(768 → 5)
 3. **도메인 데이터로 학습**: 도메인 데이터(의료 차트 1,000개)로 역전파를 수행한다. 이 과정에서 모든 층의 가중치가 업데이트된다.
 4. **검증 세트로 모니터링**: 검증 성능이 더 이상 개선되지 않으면 학습을 멈춘다(Early Stopping).
+
+```mermaid
+flowchart BT
+    A["입력 문서<br/>의료 차트"]
+    B["Tokenizer<br/>토큰 ID 변환"]
+    C["Embedding<br/>토큰 + 위치 표현"]
+    D["Transformer Layers<br/>Self-Attention + FFN<br/>사전학습된 표현"]
+    E["[CLS] 표현<br/>문서 전체 요약 벡터"]
+    F["Classification Head<br/>Linear(768 -> 5)"]
+    G["클래스 예측<br/>예: 당뇨 / 심혈관 / 정상"]
+    H["Loss<br/>예측값 vs 정답 라벨"]
+
+    A --> B --> C --> D --> E --> F --> G --> H
+    H -. "역전파<br/>Classification Head 업데이트" .-> F
+    F -. "Transformer Layers까지<br/>기울기 전달" .-> D
+    D -. "Embedding까지<br/>함께 업데이트" .-> C
+
+    subgraph M["파인튜닝되는 모델"]
+        C
+        D
+        E
+        F
+    end
+```
+
+**그림 9.3** Transformer에서의 Full Fine-tuning 흐름: 도메인 문서가 토큰화되어 사전학습된 Transformer 층을 통과하고, `[CLS]` 표현을 Classification Head가 클래스 확률로 변환한다. 손실이 계산되면 역전파를 통해 Classification Head뿐 아니라 Embedding과 Transformer Layers까지 함께 업데이트된다.
 
 ```python
 # 간단한 의사 코드
@@ -923,7 +953,7 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 
 #### 이 회차의 핵심 내용
 
-- **파인튜닝**은 사전학습된 모델의 모든 파라미터를 도메인 데이터로 업데이트하는 기법이다. Transfer Learning의 이점으로 수조 토큰이 아닌 수천 문장만으로 도메인 특화 모델을 만들 수 있다.
+- **파인튜닝**은 사전학습된 모델을 도메인 또는 태스크 특화 데이터로 추가 학습하여 원하는 용도에 맞게 조정하는 기법이다. Transfer Learning의 이점으로 수조 토큰이 아닌 수천 문장만으로 도메인 특화 모델을 만들 수 있다.
 
 - **Full Fine-tuning**은 모든 파라미터(예: BERT-Base 110M)를 학습하므로 메모리 사용이 크고 학습이 느리지만, 최고의 성능을 제공한다.
 
@@ -1021,7 +1051,7 @@ _전체 코드는 practice/chapter9/code/9-1-bert-finetuning-basic.py 참고_
 
 ## 다음 장 예고
 
-다음 회차(10주차 A회차)에서는 Full Fine-tuning의 한계(메모리, 속도)를 해결하는 **PEFT(Parameter-Efficient Fine-Tuning) 기법**을 배운다. **LoRA(Low-Rank Adaptation)**를 통해 0.1% 파라미터만 학습하면서도 Full Fine-tuning과 유사한 성능을 얻는 방법을 배운다. 또한 **QLoRA**를 활용하여 4-bit 양자화로 일반 노트북 GPU에서도 파인튜닝하는 방법을 실습한다.
+다음 회차(10주차)에서는 LLM의 크기 문제를 해결하는 **경량화 기법**(가지치기, 양자화, 지식 증류)의 전체 지형을 개관하고, **PEFT(Parameter-Efficient Fine-Tuning)**와 **LoRA(Low-Rank Adaptation)**를 통해 0.1% 파라미터만 학습하면서도 Full Fine-tuning과 유사한 성능을 얻는 방법을 배운다. **QLoRA**를 활용하여 4-bit 양자화로 8GB GPU에서도 파인튜닝하는 방법을 실습한다.
 
 ---
 
