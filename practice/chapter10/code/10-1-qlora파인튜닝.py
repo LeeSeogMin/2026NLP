@@ -1,37 +1,42 @@
 """
 10-1-qlora파인튜닝.py
-제10장 실습: PEFT와 QLoRA 파인튜닝
+제10장 실습: QLoRA로 한국어 Instruction Tuning
 
-이 스크립트는 환경 자동 구성부터 QLoRA 파인튜닝까지 전체 파이프라인을 실행한다:
+이 스크립트는 환경 자동 구성부터 한국어 Instruction Tuning까지 전체 파이프라인을 실행한다:
 
   Phase 1 — 자동 환경 구성 (처음 1회만 필요)
-    1. 하드웨어 감지  : NVIDIA GPU / Intel NPU / AMD GPU 자동 탐지
-    2. CUDA 자동 설치  : 드라이버 버전에 맞는 PyTorch+CUDA 자동 pip 설치
+    1. 하드웨어 감지  : NVIDIA GPU / Apple MPS / CPU 자동 탐지
+    2. CUDA 자동 설치  : NVIDIA GPU 사용 시, 드라이버에 맞는 PyTorch+CUDA pip 설치
     3. 라이브러리 자동 설치 : peft, bitsandbytes, accelerate, datasets 자동 설치
 
-  Phase 2 — QLoRA 실습
+  Phase 2 — 한국어 Instruction Tuning
     4. 양자화 수학 시연  (GPU 불필요)
-    5. OPT-1.3B 4-bit 모델 로딩 + 메모리 측정
-    6. LoRA 설정 및 파인튜닝 (20 step)
-    7. Full FT / LoRA / QLoRA 메모리 비교 차트
-    8. 파인튜닝 모델 추론 테스트
+    5. polyglot-ko-1.3b 모델 로딩 (플랫폼별 최적화)
+    6. Before: 파인튜닝 전 한국어 질문 응답 테스트
+    7. KoAlpaca 데이터로 QLoRA/LoRA 파인튜닝 (20 step)
+    8. After: 파인튜닝 후 동일 질문 응답 + Before/After 비교
+    9. Full FT / LoRA / QLoRA 메모리 비교 차트
 
-대상 환경: Windows 11, NVIDIA GPU (RTX 4090 권장, 8GB+ VRAM)
-모델: facebook/opt-1.3b (fp32 ~2.6GB, 4-bit ~800MB)
+대상 환경:
+  - Windows + NVIDIA GPU  → QLoRA (4-bit NF4 + LoRA)
+  - macOS + Apple Silicon  → LoRA (float16, 양자화 없음)
+  - CPU only              → LoRA (float32, 데모용)
+
+모델: EleutherAI/polyglot-ko-1.3b (한국어 전용 GPT-NeoX, 1.3B 파라미터)
+데이터: beomi/KoAlpaca-v1.1a (한국어 Instruction 21K, Apache-2.0)
 
 실행 방법:
     cd practice/chapter10
     python -m venv venv
     venv\\Scripts\\activate          # Windows
     source venv/bin/activate        # macOS / Linux
-    pip install torch               # PyTorch 먼저 설치 (스크립트가 CUDA 버전 자동 재설치)
+    pip install torch               # PyTorch 먼저 설치
     python code/10-1-qlora파인튜닝.py
 """
 
 import importlib
 import os
 import platform
-import re
 import subprocess
 import sys
 import warnings
@@ -47,8 +52,16 @@ torch.manual_seed(42)
 OUTPUT_DIR = Path(__file__).parent.parent / "data" / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── 기본 모델 (교실 실습용 — 소형 모델) ────────────────
-DEFAULT_MODEL = "facebook/opt-1.3b"
+# ── 모델 및 데이터 설정 ────────────────────────────────
+DEFAULT_MODEL = "EleutherAI/polyglot-ko-1.3b"
+DATASET_NAME = "beomi/KoAlpaca-v1.1a"
+
+# ── 테스트 프롬프트 (Before/After 비교용) ───────────────
+TEST_PROMPTS = [
+    "인공지능이 우리 생활에 미치는 영향을 설명해주세요.",
+    "건강한 식습관을 유지하는 팁 3가지를 알려주세요.",
+    "파이썬 프로그래밍의 장점은 무엇인가요?",
+]
 
 
 # ──────────────────────────────────────────────────────
@@ -74,7 +87,6 @@ def _pip_install(*packages, index_url=None, timeout=600):
     print(f"    실행: {' '.join(cmd[-len(packages):])}")
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0 and r.stderr:
-        # 핵심 에러 메시지만 출력
         for line in r.stderr.strip().split("\n")[-3:]:
             print(f"    ! {line}")
     return r.returncode == 0
@@ -94,42 +106,29 @@ def _get_nvidia_driver_version():
         "--format=csv,noheader",
     ])
     if code == 0 and out:
-        # 여러 GPU 가 있으면 첫 줄만 사용
         return out.split("\n")[0].strip()
     return None
 
 
 def _driver_to_cuda_tag(driver_ver):
-    """NVIDIA 드라이버 버전 → 최적 PyTorch CUDA index URL 태그를 반환한다.
-
-    드라이버-CUDA 호환 테이블 (NVIDIA 공식 기준):
-      Driver >= 550  →  CUDA 12.4  →  cu124
-      Driver >= 530  →  CUDA 12.1  →  cu121
-      Driver >= 522  →  CUDA 11.8  →  cu118
-      Driver <  522  →  드라이버 업데이트 필요
-    """
+    """NVIDIA 드라이버 버전 → 최적 PyTorch CUDA index URL 태그."""
     try:
         major = int(driver_ver.split(".")[0])
     except (ValueError, IndexError):
         return None
-
     if major >= 550:
         return "cu124"
     if major >= 530:
         return "cu121"
     if major >= 522:
         return "cu118"
-    return None  # 드라이버가 너무 오래됨
+    return None
 
 
 def _detect_npu_windows():
-    """Windows 에서 NPU (Intel AI Boost 등) 를 감지한다.
-    반환: 감지된 NPU 이름 리스트.
-    """
+    """Windows 에서 NPU를 감지한다."""
     if platform.system() != "Windows":
         return []
-
-    # PowerShell 로 PnP 장치에서 NPU / Neural 키워드 검색
     ps_cmd = (
         "Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue "
         "| Where-Object { $_.FriendlyName -match 'NPU|Neural|AI Boost' } "
@@ -154,11 +153,20 @@ def _detect_npu_linux():
     return npus
 
 
+def _get_device_type():
+    """현재 환경의 가속기 유형을 반환한다: 'cuda', 'mps', 'cpu'."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 # ──────────────────────────────────────────────────────
 # 1. 하드웨어 자동 감지
 # ──────────────────────────────────────────────────────
 def detect_hardware():
-    """NVIDIA GPU, NPU, 기타 가속기를 자동 감지하고 결과를 반환한다."""
+    """NVIDIA GPU, Apple MPS, NPU 등을 자동 감지하고 결과를 반환한다."""
     print("=" * 60)
     print("[1] 하드웨어 자동 감지")
     print("=" * 60)
@@ -168,6 +176,7 @@ def detect_hardware():
         "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "nvidia_driver": None,
         "nvidia_gpus": [],
+        "mps_available": False,
         "npus": [],
         "cuda_available": torch.cuda.is_available(),
         "pytorch_cuda": torch.version.cuda,
@@ -180,7 +189,7 @@ def detect_hardware():
     if not (v.major == 3 and v.minor >= 10):
         print("          [!] Python 3.10+ 권장")
 
-    # ── NVIDIA GPU 감지 (nvidia-smi) ──
+    # ── NVIDIA GPU 감지 ──
     print(f"\n  --- NVIDIA GPU 탐지 ---")
     code, out = _run_cmd([
         "nvidia-smi",
@@ -194,15 +203,22 @@ def detect_hardware():
                 gpu_name, drv, mem_mb = parts[0], parts[1], parts[2]
                 mem_gb = int(mem_mb) / 1024
                 info["nvidia_gpus"].append({
-                    "name": gpu_name,
-                    "driver": drv,
-                    "vram_gb": round(mem_gb, 1),
+                    "name": gpu_name, "driver": drv, "vram_gb": round(mem_gb, 1),
                 })
                 info["nvidia_driver"] = drv
                 print(f"  [GPU] {gpu_name}")
                 print(f"        드라이버: {drv}  |  VRAM: {mem_gb:.1f} GB")
     else:
         print("  NVIDIA GPU 미감지 (nvidia-smi 실행 불가)")
+
+    # ── Apple MPS 감지 ──
+    print(f"\n  --- Apple MPS 탐지 ---")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        info["mps_available"] = True
+        print("  [MPS] Apple Silicon GPU 사용 가능")
+        print("        LoRA 파인튜닝 지원 (양자화 없이 float16)")
+    else:
+        print("  Apple MPS 미감지")
 
     # ── NPU 감지 ──
     print(f"\n  --- NPU 탐지 ---")
@@ -212,17 +228,15 @@ def detect_hardware():
         npus = _detect_npu_linux()
     else:
         npus = []
-
     if npus:
         info["npus"] = npus
         for npu_name in npus:
             print(f"  [NPU] {npu_name}")
         print("        ※ NPU는 현재 bitsandbytes/QLoRA를 지원하지 않습니다.")
-        print("          NVIDIA CUDA GPU가 필요합니다.")
     else:
         print("  NPU 미감지")
 
-    # ── PyTorch / CUDA 현황 ──
+    # ── PyTorch 현황 ──
     print(f"\n  --- PyTorch 현황 ---")
     print(f"  PyTorch:     {torch.__version__}")
     print(f"  CUDA 빌드:   {info['pytorch_cuda'] or '없음 (CPU 전용)'}")
@@ -241,14 +255,13 @@ def detect_hardware():
         gpu0 = info["nvidia_gpus"][0]
         cuda_tag = _driver_to_cuda_tag(gpu0["driver"])
         if cuda_tag:
-            print(f"  NVIDIA GPU 감지됨: {gpu0['name']} ({gpu0['vram_gb']}GB)")
-            print(f"  드라이버 {gpu0['driver']} -> 호환 CUDA: {cuda_tag}")
+            print(f"  NVIDIA GPU 감지: {gpu0['name']} ({gpu0['vram_gb']}GB)")
+            print(f"  -> QLoRA 모드 (4-bit 양자화 + LoRA)")
         else:
-            print(f"  NVIDIA GPU 감지됨: {gpu0['name']}")
             print(f"  [!] 드라이버 {gpu0['driver']}이 너무 오래되었습니다.")
-            print(f"      https://www.nvidia.com/drivers 에서 업데이트하세요.")
-    elif info["npus"]:
-        print("  NPU만 감지됨. QLoRA 실습에는 NVIDIA GPU가 필요합니다.")
+    elif info["mps_available"]:
+        print("  Apple Silicon MPS 감지")
+        print("  -> LoRA 모드 (float16, 양자화 없음)")
     else:
         print("  가속기 미감지. CPU 모드로 제한 실행됩니다.")
 
@@ -261,125 +274,100 @@ def detect_hardware():
 # ──────────────────────────────────────────────────────
 def setup_cuda_and_pytorch(hw_info):
     """드라이버 버전에 맞는 PyTorch+CUDA 를 자동으로 설치한다.
-
-    이미 CUDA 가 정상 작동 중이면 건너뛴다.
-    반환: True (CUDA 사용 가능), False (불가).
+    MPS 환경에서는 설치가 불필요하므로 건너뛴다.
+    반환: 'cuda', 'mps', 'cpu', 또는 'RESTART_NEEDED'.
     """
     print("=" * 60)
     print("[2] CUDA + PyTorch 자동 설치")
     print("=" * 60)
 
-    # ── 이미 CUDA 사용 가능한 경우 ──
+    # ── 이미 CUDA 사용 가능 ──
     if torch.cuda.is_available():
         cuda_ver = torch.version.cuda
         print(f"\n  PyTorch CUDA {cuda_ver} 이미 활성 상태 — 설치 불필요")
         print(f"  GPU: {torch.cuda.get_device_name(0)}")
         print()
-        return True
+        return "cuda"
 
-    # ── NVIDIA GPU 가 없는 경우 → CPU fallback ──
+    # ── Apple MPS 사용 가능 ──
+    if hw_info.get("mps_available"):
+        print("\n  Apple Silicon MPS 감지 — CUDA 설치 불필요")
+        print("  MPS 백엔드로 LoRA 파인튜닝을 진행합니다.")
+        print("  (bitsandbytes 양자화는 CUDA 전용이므로 비활성)")
+        print()
+        return "mps"
+
+    # ── NVIDIA GPU 없는 경우 → CPU fallback ──
     if not hw_info.get("nvidia_gpus"):
-        print("\n  NVIDIA GPU 미감지 — CUDA 설치 불가")
-        if hw_info.get("npus"):
-            print("  NPU가 감지되었으나 QLoRA는 현재 NVIDIA CUDA만 지원합니다.")
+        print("\n  NVIDIA GPU / Apple MPS 미감지 — CPU 모드로 전환")
+        print("  -> CPU fallback 모드:")
+        print("     - 양자화 수학(섹션 4): 정상 실행")
+        print("     - 모델 로딩(섹션 5):   CPU fp32 로딩")
+        print("     - 파인튜닝(섹션 7):    CPU 모드 학습 (느림)")
         print()
-        print("  -> CPU fallback 모드로 전환합니다.")
-        print("     - 섹션 4 (양자화 수학): 정상 실행")
-        print("     - 섹션 5 (모델 로딩):   CPU fp32 로딩 (4-bit 양자화 불가)")
-        print("     - 섹션 6 (파인튜닝):    CPU 모드 학습 (느리지만 동작)")
-        print("     - 섹션 7 (메모리 비교): 정상 실행 (이론값 계산)")
-        print("     - 섹션 8 (추론):        CPU 모드 추론")
-        print()
+        return "cpu"
 
-        if not hw_info.get("npus"):
-            print("  [더 나은 실습을 위한 권장사항]")
-            print("  1. NVIDIA GPU가 장착된 PC 사용 (RTX 4060 이상 권장)")
-            print("  2. Google Colab (무료 T4 GPU):")
-            print("     https://colab.research.google.com")
-            print()
-
-        return False
-
-    # ── NVIDIA GPU 는 있으나 PyTorch CUDA 미활성 ──
+    # ── NVIDIA GPU 있으나 PyTorch CUDA 미활성 ──
     driver_ver = hw_info["nvidia_driver"]
     cuda_tag = _driver_to_cuda_tag(driver_ver)
 
     if cuda_tag is None:
-        print(f"\n  [!] 드라이버 {driver_ver} 이 CUDA 11.8 미만과 대응됩니다.")
-        print("  드라이버를 먼저 업데이트하세요:")
-        print("    https://www.nvidia.com/drivers")
-        print("  업데이트 후 이 스크립트를 다시 실행하세요.")
+        print(f"\n  [!] 드라이버 {driver_ver}이 너무 오래되었습니다.")
+        print("  https://www.nvidia.com/drivers 에서 업데이트하세요.")
         print()
-        return False
+        return "cpu"
 
     index_url = f"https://download.pytorch.org/whl/{cuda_tag}"
     print(f"\n  NVIDIA GPU 감지: {hw_info['nvidia_gpus'][0]['name']}")
     print(f"  드라이버: {driver_ver} -> 호환 CUDA: {cuda_tag}")
     print(f"\n  PyTorch 를 CUDA {cuda_tag} 버전으로 자동 재설치합니다.")
 
-    # 기존 PyTorch 제거
     print("\n  [단계 1/3] 기존 PyTorch 제거...")
     _pip_uninstall("torch", "torchvision", "torchaudio")
 
-    # CUDA 버전 PyTorch 설치
     print(f"  [단계 2/3] PyTorch + CUDA ({cuda_tag}) 설치 중... (수 분 소요)")
     ok = _pip_install(
         "torch", "torchvision", "torchaudio",
-        index_url=index_url,
-        timeout=900,
+        index_url=index_url, timeout=900,
     )
     if not ok:
-        print("\n  [!] PyTorch CUDA 설치 실패.")
-        print("  수동 설치를 시도하세요:")
-        print(f"    pip install torch torchvision torchaudio "
-              f"--index-url {index_url}")
+        print("\n  [!] PyTorch CUDA 설치 실패. 수동 설치를 시도하세요.")
         print()
-        return False
+        return "cpu"
 
-    # 설치 검증: torch 재임포트
     print("  [단계 3/3] 설치 검증...")
-    # 현재 프로세스의 torch 모듈은 이미 로드되어 있으므로
-    # 새 프로세스에서 검증한다
     verify_code = (
         "import torch; "
         "print(f'cuda={torch.cuda.is_available()},"
         "ver={torch.version.cuda},"
         "gpu={torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')"
     )
-    code, out = _run_cmd(
-        [sys.executable, "-c", verify_code], timeout=30,
-    )
+    code, out = _run_cmd([sys.executable, "-c", verify_code], timeout=30)
 
     if code == 0 and "cuda=True" in out:
-        print(f"\n  PyTorch CUDA 설치 성공!")
-        print(f"  검증 결과: {out}")
-        print("\n  ※ 현재 프로세스는 이전 PyTorch를 사용 중입니다.")
-        print("    스크립트를 재실행하면 CUDA가 활성화됩니다.")
+        print(f"\n  PyTorch CUDA 설치 성공! ({out})")
+        print("  스크립트를 재실행하면 CUDA가 활성화됩니다.")
         print()
         return "RESTART_NEEDED"
     else:
-        print(f"\n  [!] CUDA 활성화 실패 (검증 출력: {out})")
-        print("  NVIDIA 드라이버가 정상 설치되었는지 확인하세요.")
+        print(f"\n  [!] CUDA 활성화 실패. CPU 모드로 계속합니다.")
         print()
-        return False
+        return "cpu"
 
 
 # ──────────────────────────────────────────────────────
 # 3. 필수 라이브러리 자동 설치
 # ──────────────────────────────────────────────────────
-def install_required_libraries(cuda_available=True):
-    """QLoRA 실습에 필요한 라이브러리를 점검하고, 미설치 시 자동 설치한다.
-
-    CUDA 미사용 환경에서는 bitsandbytes 를 선택사항으로 처리하여
-    CPU 모드로 실습을 계속할 수 있게 한다.
-
-    반환: True (모두 사용 가능), False (필수 실패), "RESTART_NEEDED" (재실행 필요).
+def install_required_libraries(device_type="cpu"):
+    """QLoRA/LoRA 실습에 필요한 라이브러리를 점검·설치한다.
+    반환: True, False, 또는 'RESTART_NEEDED'.
     """
     print("=" * 60)
     print("[3] 필수 라이브러리 자동 설치")
     print("=" * 60)
 
-    # (패키지명, 최소버전, 설명, CUDA 전용 여부)
+    cuda_available = (device_type == "cuda")
+
     required = [
         ("transformers", "4.36.0", "Hugging Face Transformers",         False),
         ("peft",         "0.7.0",  "Parameter-Efficient Fine-Tuning",   False),
@@ -401,21 +389,17 @@ def install_required_libraries(cuda_available=True):
             print(f"  [OK] {pkg:<18} {ver:<12} ({desc})")
             installed.append(pkg)
         except ImportError:
-            tag = "  [--]" if (not cuda_only or cuda_available) else "  [  ]"
-            suffix = " (CUDA 없으므로 건너뜀)" if (cuda_only and not cuda_available) else ""
-            print(f"{tag} {pkg:<18} 미설치        ({desc}){suffix}")
             if cuda_only and not cuda_available:
-                continue  # CUDA 없으면 bitsandbytes 설치 시도하지 않음
+                print(f"  [  ] {pkg:<18} 건너뜀        ({desc}) — CUDA 전용")
+                continue
+            print(f"  [--] {pkg:<18} 미설치        ({desc})")
             missing.append((pkg, min_ver, desc))
 
     if not missing:
         print("\n  모든 라이브러리 정상 설치됨")
-        if not cuda_available:
-            print("  (bitsandbytes 미설치 — CPU 모드에서는 불필요)")
         print()
         return True
 
-    # ── 미설치 라이브러리 자동 설치 ──
     print(f"\n  미설치 {len(missing)}개 라이브러리를 자동 설치합니다...")
     any_installed = False
 
@@ -425,24 +409,17 @@ def install_required_libraries(cuda_available=True):
         if ok:
             print(f"    -> 설치 완료")
             any_installed = True
-        else:
-            # bitsandbytes Windows 특수 케이스
-            if pkg == "bitsandbytes" and platform.system() == "Windows":
-                print("    bitsandbytes Windows 설치 재시도 (--prefer-binary)...")
-                ok = _pip_install(
-                    f"{pkg}>={min_ver}", "--prefer-binary",
-                )
-                if ok:
-                    print("    -> 재시도 설치 완료")
-                    any_installed = True
-                else:
-                    print(f"    [!] {pkg} 설치 실패.")
-                    print("    수동 설치를 시도하세요:")
-                    print(f"      pip install {pkg}>={min_ver}")
+        elif pkg == "bitsandbytes" and platform.system() == "Windows":
+            print("    bitsandbytes Windows 재시도 (--prefer-binary)...")
+            ok = _pip_install(f"{pkg}>={min_ver}", "--prefer-binary")
+            if ok:
+                any_installed = True
             else:
                 print(f"    [!] {pkg} 설치 실패.")
+        else:
+            print(f"    [!] {pkg} 설치 실패.")
 
-    # ── 설치 후 검증 ──
+    # 설치 후 검증
     print(f"\n  --- 설치 후 검증 ---")
     still_missing = []
     for pkg, min_ver, desc in missing:
@@ -455,21 +432,16 @@ def install_required_libraries(cuda_available=True):
             still_missing.append(pkg)
 
     if still_missing:
-        # bitsandbytes만 실패한 경우 CUDA 없으면 허용
         non_bnb = [p for p in still_missing if p != "bitsandbytes"]
         if non_bnb:
-            print(f"\n  [!] 설치 실패 라이브러리: {', '.join(still_missing)}")
-            print("  수동 설치 후 재실행하세요:")
-            print(f"    pip install {' '.join(still_missing)}")
-            print()
+            print(f"\n  [!] 설치 실패: {', '.join(still_missing)}")
             return False
         else:
-            print("\n  bitsandbytes 설치 실패 — CPU 모드로 실습을 계속합니다.")
-            print("  (4-bit 양자화 기능은 비활성)")
+            print("\n  bitsandbytes 설치 실패 — 양자화 없이 LoRA 모드로 계속합니다.")
 
     if any_installed:
         print("\n  라이브러리가 새로 설치되었습니다.")
-        print("  모듈 로딩을 위해 스크립트를 재실행하세요.")
+        print("  스크립트를 재실행하세요.")
         print()
         return "RESTART_NEEDED"
 
@@ -541,7 +513,7 @@ def demonstrate_quantization_math():
     print(f"\n[4-3] LoRA 파라미터 절감 계산")
     print("-" * 40)
     configs = [
-        ("OPT-1.3B FFN",         2048, 8192),
+        ("polyglot-ko-1.3B QKV", 2048, 6144),
         ("Llama-7B Attention",   4096, 4096),
         ("Llama-70B Attention",  8192, 8192),
     ]
@@ -563,15 +535,15 @@ def demonstrate_quantization_math():
         print(row)
 
     # ── 4-4. 파인튜닝 방법별 메모리 비교 ──
-    print(f"\n[4-4] 파인튜닝 방법별 메모리 비교 (OPT-1.3B)")
+    print(f"\n[4-4] 파인튜닝 방법별 메모리 비교 (polyglot-ko-1.3B)")
     print("-" * 40)
     param_count = 1.3e9
-    lora_params = 16 * (2048 + 2048) * 2 * 24
+    lora_params = 16 * (2048 + 6144) * 24
 
     strategies = [
         ("Full Fine-tuning (fp32)", param_count * 4,
          param_count * 4 * 2, param_count * 4),
-        ("LoRA (bf16, r=16)",       param_count * 2,
+        ("LoRA (fp16, r=16)",       param_count * 2,
          lora_params * 4 * 2, lora_params * 4),
         ("QLoRA (4-bit NF4)",       param_count * 0.5,
          lora_params * 4 * 2, lora_params * 4),
@@ -591,31 +563,30 @@ def demonstrate_quantization_math():
 
 
 # ──────────────────────────────────────────────────────
-# 5. 4-bit 양자화 모델 로딩
+# 5. 모델 로딩 (플랫폼 적응)
 # ──────────────────────────────────────────────────────
-def load_model_with_qlora(model_name=DEFAULT_MODEL):
-    """4-bit NF4 양자화로 모델을 로딩하고 메모리를 측정한다."""
+def load_model(device_type, model_name=DEFAULT_MODEL):
+    """polyglot-ko-1.3b를 플랫폼에 맞게 로딩한다.
+    - cuda: 4-bit NF4 양자화 (QLoRA)
+    - mps:  float16 (LoRA)
+    - cpu:  float32 (LoRA)
+    """
     print("=" * 60)
-    print("[5] 4-bit 양자화 모델 로딩")
+    print("[5] 모델 로딩")
     print("=" * 60)
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    cuda_ok = torch.cuda.is_available()
-
-    if cuda_ok:
-        torch.cuda.empty_cache()
-        mem_before = torch.cuda.memory_allocated(0) / (1024 ** 3)
-        print(f"\n  GPU 메모리 (로딩 전): {mem_before:.2f} GB")
-    else:
-        mem_before = 0.0
-
     print(f"\n  모델: {model_name}")
+    print(f"  모드: {device_type.upper()}")
     print("  (첫 실행 시 HuggingFace에서 다운로드 — 수 분 소요 가능)")
 
     try:
-        if cuda_ok:
+        if device_type == "cuda":
             from transformers import BitsAndBytesConfig
+
+            torch.cuda.empty_cache()
+            mem_before = torch.cuda.memory_allocated(0) / (1024 ** 3)
 
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -623,62 +594,47 @@ def load_model_with_qlora(model_name=DEFAULT_MODEL):
                 bnb_4bit_compute_dtype=torch.bfloat16,
                 bnb_4bit_use_double_quant=True,
             )
-            print("\n  양자화 설정:")
-            print("    - NF4 양자화 사용")
-            print("    - Double Quantization 활성화")
-            print("    - 연산 정밀도: bfloat16")
-            print("\n  모델 로딩 중...")
+            print("\n  양자화 설정: NF4 + Double Quantization + bfloat16")
+            print("  모델 로딩 중...")
 
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 quantization_config=bnb_config,
                 device_map="auto",
             )
-            print("  4-bit NF4 + Double Quantization 로딩 완료")
 
             mem_after = torch.cuda.memory_allocated(0) / (1024 ** 3)
-            mem_diff = mem_after - mem_before
-            total_mem = (
-                torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
-            )
-            print(f"\n  GPU 메모리 (로딩 후): {mem_after:.2f} GB")
-            print(f"  모델 점유 메모리:     {mem_diff:.2f} GB")
-            print(f"  남은 여유 메모리:     {total_mem - mem_after:.2f} GB")
+            print(f"  4-bit NF4 로딩 완료")
+            print(f"  GPU 메모리: {mem_after:.2f} GB (모델: {mem_after - mem_before:.2f} GB)")
 
-            total_params = sum(p.numel() for p in model.parameters())
-            fp32_est_gb = total_params * 4 / (1024 ** 3)
-            print(f"\n  fp32 이론 크기:  {fp32_est_gb:.2f} GB")
-            print(f"  4-bit 실제 크기: {mem_diff:.2f} GB")
-            if mem_diff > 0:
-                print(f"  압축률:          {fp32_est_gb / mem_diff:.1f}x")
+        elif device_type == "mps":
+            print("\n  Apple MPS: float16으로 로딩 (양자화 없음)")
+            print("  모델 로딩 중...")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+            ).to("mps")
+            print("  float16 MPS 로딩 완료")
+
         else:
-            print("\n  CUDA 미사용 — CPU 모드로 로딩 (양자화 비활성)")
+            print("\n  CPU: float32로 로딩 (양자화 없음)")
             print("  모델 로딩 중...")
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 torch_dtype=torch.float32,
             )
-            total_params = sum(p.numel() for p in model.parameters())
-            print(f"\n  CPU 모드 로딩 완료")
-            print(f"  총 파라미터: {total_params:,}")
-            print("  ※ 양자화 실습은 CUDA GPU 환경에서 실행하세요")
+            print("  CPU 로딩 완료")
 
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        print(f"\n  토크나이저 로딩 완료 (어휘 크기: {tokenizer.vocab_size:,})")
 
         total = sum(p.numel() for p in model.parameters())
-        trainable = sum(
-            p.numel() for p in model.parameters() if p.requires_grad
-        )
-        print(f"\n  전체 파라미터:      {total:>15,}")
-        print(f"  학습 가능 파라미터: {trainable:>15,}")
-        print(f"  학습 비율:          {100 * trainable / total:.4f}%")
+        print(f"\n  파라미터: {total:,}")
+        print(f"  어휘 크기: {tokenizer.vocab_size:,}")
 
     except Exception as e:
         print(f"\n  모델 로딩 실패: {e}")
-        print("  bitsandbytes 설치 상태와 CUDA 환경을 확인하세요")
         return None, None
 
     print()
@@ -686,19 +642,90 @@ def load_model_with_qlora(model_name=DEFAULT_MODEL):
 
 
 # ──────────────────────────────────────────────────────
-# 6. LoRA 설정 및 파인튜닝
+# 6. 추론 실행 (Before/After 공용)
 # ──────────────────────────────────────────────────────
-def configure_lora_and_train(model, tokenizer):
-    """LoRA 설정을 적용하고 단기 파인튜닝을 실행한다."""
+def run_inference(model, tokenizer, prompts, device_type):
+    """Instruction 형식의 프롬프트로 추론을 실행한다."""
+    model.eval()
+    results = []
+
+    for instruction in prompts:
+        prompt = f"### 질문: {instruction}\n\n### 답변: "
+
+        if device_type == "cuda":
+            device = next(model.parameters()).device
+        elif device_type == "mps":
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+
+        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            torch.manual_seed(42)
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=80,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.2,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+
+        generated = tokenizer.decode(
+            output_ids[0][inputs["input_ids"].shape[1]:],
+            skip_special_tokens=True,
+        )
+        results.append({
+            "instruction": instruction,
+            "generated": generated.strip(),
+        })
+
+    return results
+
+
+def test_before_finetuning(model, tokenizer, device_type):
+    """파인튜닝 전 모델의 응답을 테스트한다."""
     print("=" * 60)
-    print("[6] LoRA 설정 및 파인튜닝")
+    print("[6] Before: 파인튜닝 전 추론 테스트")
     print("=" * 60)
 
     if model is None:
-        print("  모델이 없습니다. 섹션 5를 먼저 실행하세요.")
+        print("  모델이 없습니다.")
+        return []
+
+    results = run_inference(model, tokenizer, TEST_PROMPTS, device_type)
+
+    print()
+    for i, r in enumerate(results, 1):
+        print(f"  [질문 {i}] {r['instruction']}")
+        answer = r['generated'][:150]
+        print(f"  [응답]   {answer}")
+        if len(r['generated']) > 150:
+            print(f"           ...")
+        print()
+
+    print("  -> 베이스 모델은 Instruction 형식을 이해하지 못한다.")
+    print("     KoAlpaca 데이터로 파인튜닝 후 비교할 예정.")
+    print()
+    return results
+
+
+# ──────────────────────────────────────────────────────
+# 7. KoAlpaca 데이터로 LoRA/QLoRA 파인튜닝
+# ──────────────────────────────────────────────────────
+def finetune_with_koalpaca(model, tokenizer, device_type):
+    """KoAlpaca 데이터로 Instruction Tuning을 수행한다."""
+    print("=" * 60)
+    print("[7] KoAlpaca 데이터로 파인튜닝")
+    print("=" * 60)
+
+    if model is None:
+        print("  모델이 없습니다.")
         return None, None
 
-    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from peft import LoraConfig, get_peft_model
     from transformers import (
         DataCollatorForLanguageModeling,
         Trainer,
@@ -706,101 +733,96 @@ def configure_lora_and_train(model, tokenizer):
     )
     from datasets import load_dataset
 
-    # ── 6-1. kbit 학습 준비 ──
-    if torch.cuda.is_available():
-        model = prepare_model_for_kbit_training(model)
-        print("\n  kbit 학습 준비 완료")
-        print("  (LayerNorm float32 업캐스팅, 입력 임베딩 gradient 활성화)")
+    cuda_ok = (device_type == "cuda")
 
-    # ── 6-2. LoRA 설정 ──
+    # ── 7-1. kbit 학습 준비 (CUDA QLoRA 전용) ──
+    if cuda_ok:
+        from peft import prepare_model_for_kbit_training
+        model = prepare_model_for_kbit_training(model)
+        print("\n  kbit 학습 준비 완료 (LayerNorm fp32 업캐스팅)")
+
+    # ── 7-2. LoRA 설정 ──
+    # GPT-NeoX 아키텍처: QKV가 query_key_value로 융합되어 있음
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
-        target_modules=["q_proj", "v_proj"],
+        target_modules=["query_key_value"],
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
     )
 
-    hidden_size = getattr(model.config, "hidden_size", "?")
-    print(f"\n  [LoRA 하이퍼파라미터]")
-    print(f"    r (rank):       {lora_config.r}")
-    print(f"      -> dW = A*B,  A: {hidden_size}x{lora_config.r},  "
-          f"B: {lora_config.r}x{hidden_size}")
-    print(f"    lora_alpha:     {lora_config.lora_alpha}")
-    print(f"      -> 스케일 = alpha/r = "
-          f"{lora_config.lora_alpha}/{lora_config.r} = "
-          f"{lora_config.lora_alpha / lora_config.r}")
-    print(f"    target_modules: {lora_config.target_modules}")
-    print(f"    lora_dropout:   {lora_config.lora_dropout}")
+    print(f"\n  [LoRA 설정]")
+    print(f"    rank: {lora_config.r}")
+    print(f"    alpha: {lora_config.lora_alpha}")
+    print(f"    target: {lora_config.target_modules}")
+    print(f"    ※ GPT-NeoX는 QKV가 융합 — query_key_value 하나로 적용")
 
     model = get_peft_model(model, lora_config)
     print(f"\n  [학습 가능 파라미터]")
     model.print_trainable_parameters()
 
-    # ── 6-3. Gradient Checkpointing ──
-    if torch.cuda.is_available():
-        mem_before_gc = torch.cuda.memory_allocated(0) / (1024 ** 3)
+    # ── 7-3. Gradient Checkpointing (CUDA 전용) ──
+    if cuda_ok:
         model.gradient_checkpointing_enable(
             gradient_checkpointing_kwargs={"use_reentrant": False}
         )
         model.enable_input_require_grads()
-        mem_after_gc = torch.cuda.memory_allocated(0) / (1024 ** 3)
-        print(f"\n  Gradient Checkpointing 활성화")
-        print(f"    메모리: {mem_before_gc:.2f} GB -> {mem_after_gc:.2f} GB")
-        print("    (역전파 시 중간 활성화 재계산 -> 메모리 30~50% 절감)")
+        print("  Gradient Checkpointing 활성화")
 
-    # ── 6-4. 데이터셋 로딩 ──
-    print(f"\n  데이터셋 로딩: wikitext-2 (5% 샘플)")
-    dataset = load_dataset(
-        "wikitext", "wikitext-2-raw-v1", split="train[:5%]"
+    # ── 7-4. KoAlpaca 데이터 로딩 + Instruction 포맷팅 ──
+    print(f"\n  데이터 로딩: {DATASET_NAME}")
+    dataset = load_dataset(DATASET_NAME, split="train")
+
+    # 500개 샘플만 사용 (교실 실습용)
+    dataset = dataset.shuffle(seed=42).select(range(min(500, len(dataset))))
+
+    def format_and_tokenize(example):
+        instruction = example.get("instruction", "")
+        output = example.get("output", "")
+        text = f"### 질문: {instruction}\n\n### 답변: {output}{tokenizer.eos_token}"
+        return tokenizer(text, truncation=True, max_length=256, padding="max_length")
+
+    tokenized = dataset.map(
+        format_and_tokenize,
+        remove_columns=dataset.column_names,
     )
-    dataset = dataset.filter(lambda x: len(x["text"].strip()) > 0)
+    print(f"  데이터: {len(tokenized)} 샘플, 최대 256 토큰")
 
-    def tokenize_fn(examples):
-        return tokenizer(
-            examples["text"],
-            truncation=True,
-            max_length=256,
-            padding="max_length",
-        )
+    # 샘플 출력
+    sample = dataset[0]
+    print(f"\n  [데이터 샘플]")
+    print(f"    질문: {sample.get('instruction', '')[:80]}")
+    print(f"    답변: {sample.get('output', '')[:80]}")
 
-    tokenized = dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
-    print(f"  데이터 크기: {len(tokenized)} 샘플")
-    print(f"  시퀀스 길이: 256 토큰 (교실 실습용 단축)")
-
-    # ── 6-5. 학습 설정 ──
+    # ── 7-5. 학습 설정 ──
     output_path = OUTPUT_DIR / "lora_checkpoint"
-    cuda_ok = torch.cuda.is_available()
+    max_steps = 10 if device_type == "cpu" else 20
 
     training_args = TrainingArguments(
         output_dir=str(output_path),
-        max_steps=20,
-        per_device_train_batch_size=2,
+        max_steps=max_steps,
+        per_device_train_batch_size=2 if device_type != "cpu" else 1,
         gradient_accumulation_steps=4,
-        learning_rate=2e-4,
+        learning_rate=5e-4,
         lr_scheduler_type="cosine",
         warmup_steps=5,
         logging_steps=5,
-        save_steps=20,
+        save_steps=max_steps,
         bf16=cuda_ok,
         fp16=False,
-        gradient_checkpointing=True,
+        gradient_checkpointing=cuda_ok,
         seed=42,
         optim="paged_adamw_8bit" if cuda_ok else "adamw_torch",
         report_to="none",
     )
 
     print(f"\n  [학습 설정]")
-    print(f"    최대 스텝:       {training_args.max_steps} (교실용 단축)")
-    print(f"    배치 크기:       {training_args.per_device_train_batch_size}")
-    print(f"    그래디언트 누적: {training_args.gradient_accumulation_steps} "
-          f"(유효 배치 = "
-          f"{training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps})")
-    print(f"    학습률:          {training_args.learning_rate}")
-    print(f"    옵티마이저:      {training_args.optim}")
+    print(f"    스텝: {max_steps}  |  배치: {training_args.per_device_train_batch_size}")
+    print(f"    학습률: {training_args.learning_rate}  |  옵티마이저: {training_args.optim}")
+    print(f"    모드: {'QLoRA (4-bit)' if cuda_ok else 'LoRA (' + device_type + ')'}")
 
-    # ── 6-6. 학습 실행 ──
+    # ── 7-6. 학습 실행 ──
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -808,39 +830,78 @@ def configure_lora_and_train(model, tokenizer):
         data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
 
-    print(f"\n  학습 시작 (최대 {training_args.max_steps} 스텝)...")
+    print(f"\n  학습 시작 ({max_steps} 스텝)...")
     train_result = trainer.train()
 
     runtime = train_result.metrics.get("train_runtime", 0)
-    samples_per_sec = train_result.metrics.get("train_samples_per_second", 0)
-    print(f"\n  학습 완료")
-    print(f"    총 학습 시간: {runtime:.1f}초")
-    print(f"    초당 샘플:    {samples_per_sec:.1f}")
+    print(f"\n  학습 완료 ({runtime:.1f}초)")
 
     if cuda_ok:
         final_mem = torch.cuda.memory_allocated(0) / (1024 ** 3)
-        print(f"    최종 GPU 메모리: {final_mem:.2f} GB")
+        print(f"  최종 GPU 메모리: {final_mem:.2f} GB")
 
+    # LoRA 어댑터 저장
     adapter_path = OUTPUT_DIR / "lora_adapter"
     model.save_pretrained(str(adapter_path))
-
     adapter_size = sum(
         f.stat().st_size for f in Path(adapter_path).rglob("*") if f.is_file()
     )
-    print(f"\n  LoRA 어댑터 저장: {adapter_path}")
-    print(f"    어댑터 크기: {adapter_size / 1e6:.2f} MB (원본 모델 대비 극소)")
+    print(f"  LoRA 어댑터 저장: {adapter_path}")
+    print(f"  어댑터 크기: {adapter_size / 1e6:.2f} MB")
 
     print()
     return model, tokenizer
 
 
 # ──────────────────────────────────────────────────────
-# 7. 메모리 사용량 비교 차트
+# 8. Before/After 비교
+# ──────────────────────────────────────────────────────
+def test_after_and_compare(model, tokenizer, before_results, device_type):
+    """파인튜닝 후 동일 질문으로 추론하고 Before/After를 비교한다."""
+    print("=" * 60)
+    print("[8] After: 파인튜닝 후 추론 + Before/After 비교")
+    print("=" * 60)
+
+    if model is None or not before_results:
+        print("  모델 또는 Before 결과가 없습니다.")
+        return
+
+    after_results = run_inference(model, tokenizer, TEST_PROMPTS, device_type)
+
+    print()
+    for i, (before, after) in enumerate(zip(before_results, after_results), 1):
+        print(f"  {'=' * 50}")
+        print(f"  [질문 {i}] {before['instruction']}")
+        print(f"  {'─' * 50}")
+        b_text = before['generated'][:120]
+        a_text = after['generated'][:120]
+        print(f"  Before: {b_text}")
+        print(f"  After:  {a_text}")
+        print()
+
+    # 결과 파일 저장
+    result_path = OUTPUT_DIR / "before_after_comparison.txt"
+    with open(result_path, "w", encoding="utf-8") as f:
+        f.write("QLoRA/LoRA Instruction Tuning — Before/After 비교\n")
+        f.write(f"모델: {DEFAULT_MODEL}\n")
+        f.write(f"데이터: {DATASET_NAME}\n")
+        f.write("=" * 60 + "\n\n")
+        for i, (before, after) in enumerate(zip(before_results, after_results), 1):
+            f.write(f"[질문 {i}] {before['instruction']}\n")
+            f.write(f"Before: {before['generated']}\n")
+            f.write(f"After:  {after['generated']}\n")
+            f.write("-" * 40 + "\n\n")
+    print(f"  비교 결과 저장: {result_path}")
+    print()
+
+
+# ──────────────────────────────────────────────────────
+# 9. 메모리 사용량 비교 차트
 # ──────────────────────────────────────────────────────
 def compare_memory_usage():
     """Full FT / LoRA / QLoRA 메모리를 이론값으로 비교하고 차트를 저장한다."""
     print("=" * 60)
-    print("[7] 메모리 사용량 비교 (이론값)")
+    print("[9] 메모리 사용량 비교 (이론값)")
     print("=" * 60)
 
     import matplotlib
@@ -858,25 +919,25 @@ def compare_memory_usage():
     plt.rcParams["axes.unicode_minus"] = False
 
     models = {
-        "OPT-1.3B":  1.3e9,
-        "Llama-7B":  7e9,
-        "Llama-70B": 70e9,
+        "polyglot-ko\n1.3B":  1.3e9,
+        "Llama-7B":           7e9,
+        "Llama-70B":          70e9,
     }
 
     lora_r = 16
     lora_params = {
-        "OPT-1.3B":  lora_r * (2048 + 2048) * 2 * 24,
-        "Llama-7B":  lora_r * (4096 + 4096) * 2 * 32,
-        "Llama-70B": lora_r * (8192 + 8192) * 2 * 80,
+        "polyglot-ko\n1.3B":  lora_r * (2048 + 6144) * 24,
+        "Llama-7B":           lora_r * (4096 + 4096) * 2 * 32,
+        "Llama-70B":          lora_r * (8192 + 8192) * 2 * 80,
     }
 
-    methods = ["Full FT (fp32)", "LoRA (bf16)", "QLoRA (4-bit)"]
+    methods = ["Full FT (fp32)", "LoRA (fp16)", "QLoRA (4-bit)"]
     data = {m: [] for m in methods}
 
     for mname, params in models.items():
         lp = lora_params[mname]
         data["Full FT (fp32)"].append(params * 4 * 4 / (1024 ** 3))
-        data["LoRA (bf16)"].append(
+        data["LoRA (fp16)"].append(
             (params * 2 + lp * 4 * 3) / (1024 ** 3)
         )
         data["QLoRA (4-bit)"].append(
@@ -884,22 +945,22 @@ def compare_memory_usage():
         )
 
     model_names = list(models.keys())
+    display_names = [n.replace("\n", " ") for n in model_names]
     print(f"\n  {'방법':<18}", end="")
-    for mn in model_names:
-        print(f" {mn:>12}", end="")
+    for mn in display_names:
+        print(f" {mn:>14}", end="")
     print()
-    print("  " + "-" * 56)
+    print("  " + "-" * 62)
 
     for method in methods:
         print(f"  {method:<18}", end="")
         for val in data[method]:
-            print(f" {val:>10.1f}GB", end="")
+            print(f" {val:>12.1f}GB", end="")
         print()
 
-    print("  " + "-" * 56)
-    print("  주: 이론 추정치. 실제 값은 배치 크기, 시퀀스 길이에 따라 다름")
-    print(f"\n  참고 GPU VRAM:")
-    print(f"    RTX 4090: 24 GB  |  RTX 3080: 10 GB  |  RTX 4060: 8 GB")
+    print("  " + "-" * 62)
+    print("  참고 GPU VRAM:")
+    print("    RTX 4090: 24 GB  |  RTX 4060: 8 GB  |  Apple M1: 8-16 GB")
 
     fig, ax = plt.subplots(figsize=(10, 6))
     x = range(len(model_names))
@@ -910,11 +971,8 @@ def compare_memory_usage():
         offset = (idx - 1) * width
         bars = ax.bar(
             [xi + offset for xi in x],
-            data[method],
-            width=width,
-            label=method,
-            color=colors[idx],
-            alpha=0.85,
+            data[method], width=width,
+            label=method, color=colors[idx], alpha=0.85,
         )
         for bar, val in zip(bars, data[method]):
             ax.text(
@@ -927,7 +985,7 @@ def compare_memory_usage():
     ax.axhline(y=24, color="gray", linestyle="--", linewidth=1.5,
                label="RTX 4090 (24GB)")
     ax.axhline(y=8, color="gray", linestyle=":", linewidth=1.5,
-               label="RTX 4060 (8GB)")
+               label="RTX 4060 / M1 (8GB)")
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(model_names)
@@ -943,64 +1001,6 @@ def compare_memory_usage():
     fig.savefig(chart_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"\n  차트 저장: {chart_path}")
-
-    print()
-
-
-# ──────────────────────────────────────────────────────
-# 8. 파인튜닝 모델 추론 테스트
-# ──────────────────────────────────────────────────────
-def inference_with_finetuned_model(model, tokenizer):
-    """파인튜닝된 모델로 추론을 실행하고 결과를 저장한다."""
-    print("=" * 60)
-    print("[8] 파인튜닝 모델 추론 테스트")
-    print("=" * 60)
-
-    if model is None or tokenizer is None:
-        print("  모델/토크나이저가 없습니다. 이전 섹션을 확인하세요.")
-        return
-
-    device = next(model.parameters()).device
-    model.eval()
-
-    prompts = [
-        "The transformer architecture is",
-        "Natural language processing allows",
-        "Deep learning models can",
-    ]
-
-    results = []
-    print()
-    for i, prompt in enumerate(prompts, 1):
-        print(f"  [프롬프트 {i}] \"{prompt}\"")
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
-        with torch.no_grad():
-            torch.manual_seed(42)
-            output_ids = model.generate(
-                **inputs,
-                max_new_tokens=50,
-                do_sample=True,
-                temperature=0.7,
-                top_p=0.9,
-                pad_token_id=tokenizer.eos_token_id,
-            )
-
-        generated = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        print(f"  생성 텍스트: {generated[:120]}")
-        print()
-        results.append({"prompt": prompt, "generated": generated})
-
-    result_path = OUTPUT_DIR / "inference_results.txt"
-    with open(result_path, "w", encoding="utf-8") as f:
-        f.write("QLoRA 파인튜닝 모델 추론 결과\n")
-        f.write("=" * 60 + "\n\n")
-        for r in results:
-            f.write(f"프롬프트: {r['prompt']}\n")
-            f.write(f"생성:     {r['generated']}\n")
-            f.write("-" * 40 + "\n")
-    print(f"  추론 결과 저장: {result_path}")
-
     print()
 
 
@@ -1010,7 +1010,7 @@ def inference_with_finetuned_model(model, tokenizer):
 def main():
     print()
     print("=" * 60)
-    print("  제10장 실습 — PEFT와 QLoRA 파인튜닝")
+    print("  제10장 실습 — QLoRA로 한국어 Instruction Tuning")
     print("  딥러닝 자연어처리 (2026)")
     print("=" * 60)
     print()
@@ -1023,33 +1023,21 @@ def main():
     print("=" * 60)
     print()
 
-    # 섹션 1: 하드웨어 감지
     hw_info = detect_hardware()
 
-    # 섹션 2: CUDA + PyTorch 자동 설치
-    cuda_result = setup_cuda_and_pytorch(hw_info)
-    if cuda_result == "RESTART_NEEDED":
+    device_type = setup_cuda_and_pytorch(hw_info)
+    if device_type == "RESTART_NEEDED":
         print("=" * 60)
-        print("  PyTorch 가 CUDA 버전으로 재설치되었습니다.")
-        print("  이 스크립트를 다시 실행하세요:")
-        print(f"    python {Path(__file__).name}")
+        print("  PyTorch가 CUDA 버전으로 재설치되었습니다.")
+        print(f"  스크립트를 다시 실행하세요: python {Path(__file__).name}")
         print("=" * 60)
         return
 
-    # GPU 없으면 CPU fallback 모드로 계속 진행
-    cuda_ok = (cuda_result is True)
-    if not cuda_ok:
-        print("  -> CPU fallback 모드: 양자화 수학(섹션 4)과 메모리 비교(섹션 7)는")
-        print("     GPU 없이 실행됩니다. 모델 로딩(섹션 5~6, 8)은 CPU로 수행합니다.")
-        print()
-
-    # 섹션 3: 필수 라이브러리 자동 설치 (CUDA 여부에 따라 bitsandbytes 처리)
-    libs_result = install_required_libraries(cuda_available=cuda_ok)
+    libs_result = install_required_libraries(device_type=device_type)
     if libs_result == "RESTART_NEEDED":
         print("=" * 60)
         print("  라이브러리가 새로 설치되었습니다.")
-        print("  이 스크립트를 다시 실행하세요:")
-        print(f"    python {Path(__file__).name}")
+        print(f"  스크립트를 다시 실행하세요: python {Path(__file__).name}")
         print("=" * 60)
         return
     if libs_result is False:
@@ -1060,29 +1048,36 @@ def main():
         return
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Phase 2: QLoRA 실습
+    # Phase 2: 한국어 Instruction Tuning
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     print("=" * 60)
-    print("  Phase 2: QLoRA 실습")
+    print("  Phase 2: 한국어 Instruction Tuning")
+    print(f"  모드: {device_type.upper()}"
+          f" ({'QLoRA' if device_type == 'cuda' else 'LoRA'})")
     print("=" * 60)
     print()
 
-    # 섹션 4: 양자화 수학 (항상 실행 — GPU 불필요)
+    # 섹션 4: 양자화 수학 (항상 실행)
     demonstrate_quantization_math()
 
     # 섹션 5: 모델 로딩
-    model, tokenizer = load_model_with_qlora(DEFAULT_MODEL)
+    model, tokenizer = load_model(device_type)
 
-    # 섹션 6: LoRA 설정 및 파인튜닝
+    # 섹션 6: Before — 파인튜닝 전 추론
+    before_results = []
     if model is not None:
-        model, tokenizer = configure_lora_and_train(model, tokenizer)
+        before_results = test_before_finetuning(model, tokenizer, device_type)
 
-    # 섹션 7: 메모리 비교 차트 (항상 실행 — 이론값)
+    # 섹션 7: KoAlpaca 파인튜닝
+    if model is not None:
+        model, tokenizer = finetune_with_koalpaca(model, tokenizer, device_type)
+
+    # 섹션 8: After — Before/After 비교
+    if model is not None and before_results:
+        test_after_and_compare(model, tokenizer, before_results, device_type)
+
+    # 섹션 9: 메모리 비교 차트 (항상 실행)
     compare_memory_usage()
-
-    # 섹션 8: 추론 테스트
-    if model is not None:
-        inference_with_finetuned_model(model, tokenizer)
 
     print("=" * 60)
     print("  제10장 실습 완료")

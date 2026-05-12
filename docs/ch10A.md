@@ -501,263 +501,142 @@ training_args = TrainingArguments(
 
 ### 라이브 코딩 시연
 
-> **학습 가이드**: QLoRA 파인튜닝의 전체 파이프라인을 직접 실습한다. 실습 스크립트(`practice/chapter10/code/10-1-qlora파인튜닝.py`)를 실행하면 환경 감지부터 파인튜닝, 추론까지 자동으로 진행된다.
+> **학습 가이드**: 한국어 모델(polyglot-ko-1.3b)을 KoAlpaca 데이터로 Instruction Tuning한다. 파인튜닝 **전후 동일 질문에 대한 응답 변화**를 직접 확인한다. 실습 스크립트(`practice/chapter10/code/10-1-qlora파인튜닝.py`)가 환경 감지부터 학습, Before/After 비교까지 자동으로 진행한다.
 
 **실습 환경 및 데이터**
 
 | 항목 | 내용 |
 |------|------|
-| **실습 모델** | `facebook/opt-1.3b` (fp32 ~2.6GB, 4-bit ~800MB) |
-| **학습 데이터** | `wikitext-2-raw-v1` 5% 샘플 (HuggingFace datasets 자동 다운로드) |
-| **로컬 데이터** | 없음. 모델·데이터 모두 첫 실행 시 HuggingFace에서 다운로드, 이후 캐시 사용 |
-| **출력 위치** | `practice/chapter10/data/output/` (메모리 비교 차트, 추론 결과, LoRA 어댑터) |
-| **GPU 권장** | NVIDIA RTX 4060(8GB) 이상. GPU 없으면 CPU fallback 모드로 자동 전환 |
+| **실습 모델** | `EleutherAI/polyglot-ko-1.3b` (한국어 전용 GPT-NeoX, fp16 ~2.6GB) |
+| **학습 데이터** | `beomi/KoAlpaca-v1.1a` 500개 샘플 (한국어 Instruction, Apache-2.0) |
+| **출력 위치** | `practice/chapter10/data/output/` (Before/After 비교, 메모리 차트, LoRA 어댑터) |
+| **Windows** | NVIDIA RTX 4060(8GB)+ → **QLoRA** (4-bit 양자화 + LoRA) |
+| **macOS** | Apple Silicon → **LoRA** (float16, 양자화 없음) |
 
-> **주의**: 첫 실행 시 모델 다운로드(~2.6GB)와 데이터 다운로드가 필요하므로 인터넷 연결이 필수이다. 다운로드된 파일은 HuggingFace 캐시(`~/.cache/huggingface/`)에 저장되어 이후 재사용된다.
+> **주의**: 첫 실행 시 모델(~2.6GB)과 데이터 다운로드가 필요하다. 이후 HuggingFace 캐시(`~/.cache/huggingface/`)에서 재사용된다.
 
 **실습 스크립트의 자동 환경 구성**
 
-실습 스크립트는 아래 Phase 1을 자동으로 수행한다. 수동 설치가 필요 없다:
+스크립트가 Phase 1을 자동 수행한다. 수동 설치 없이 실행만 하면 된다:
 
-1. **하드웨어 감지**: NVIDIA GPU / Intel NPU 자동 탐지, 드라이버 버전 확인
-2. **CUDA 자동 설치**: 드라이버 버전에 맞는 PyTorch+CUDA를 자동으로 pip 재설치
-3. **라이브러리 자동 설치**: peft, bitsandbytes, accelerate, datasets 미설치 시 자동 설치
+1. **하드웨어 감지**: NVIDIA GPU / Apple MPS / CPU 자동 탐지
+2. **CUDA 자동 설치**: NVIDIA GPU 사용 시, 드라이버에 맞는 PyTorch+CUDA pip 설치
+3. **라이브러리 자동 설치**: peft, bitsandbytes(CUDA 전용), accelerate, datasets 자동 설치
 
-**환경 설정** (수동 설치 시)
-
-```bash
-pip install transformers peft bitsandbytes accelerate datasets
-```
-
-**[단계 1] 필수 라이브러리와 기본 설정**
+**[단계 1] 모델 로딩 (플랫폼 적응)**
 
 ```python
-import torch
-import transformers
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    TrainingArguments,
-    Trainer
-)
-from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-# GPU 메모리 확인
-print(f"GPU 메모리: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
-# 출력: GPU 메모리: 8.00 GB
-```
+model_name = "EleutherAI/polyglot-ko-1.3b"
 
-**[단계 2] 4-bit 양자화 설정**
-
-```python
-# 4-bit 양자화 구성
+# NVIDIA GPU: 4-bit QLoRA
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.bfloat16,
     bnb_4bit_use_double_quant=True,
 )
-
-print("4-bit 양자화 설정:")
-print(f"  - NF4 양자화: {bnb_config.bnb_4bit_quant_type}")
-print(f"  - Double Quantization: {bnb_config.bnb_4bit_use_double_quant}")
-print(f"  - 연산 정밀도: {bnb_config.bnb_4bit_compute_dtype}")
-```
-
-**[단계 3] 모델 로딩**
-
-```python
-# 모델 로딩 (약 2~3분 소요)
-model_name = "meta-llama/Llama-2-70b-hf"
-
-print(f"모델 로딩: {model_name}")
 model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    quantization_config=bnb_config,
-    device_map="auto",
-    trust_remote_code=True
+    model_name, quantization_config=bnb_config, device_map="auto"
 )
 
-print(f"모델 로딩 완료")
-print(f"모델 파라미터: {model.num_parameters():,}")
-
-# 메모리 사용량 확인
-allocated_memory = torch.cuda.memory_allocated() / 1e9
-reserved_memory = torch.cuda.memory_reserved() / 1e9
-print(f"\nGPU 메모리 사용:")
-print(f"  - 할당된 메모리: {allocated_memory:.2f} GB")
-print(f"  - 예약된 메모리: {reserved_memory:.2f} GB")
+# Apple Silicon: float16 LoRA (양자화 없음)
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_name, torch_dtype=torch.float16
+# ).to("mps")
 ```
 
-**출력 예시**:
-
-```
-모델 로딩: meta-llama/Llama-2-70b-hf
-모델 로딩 완료
-모델 파라미터: 70,000,000,000
-
-GPU 메모리 사용:
-  - 할당된 메모리: 13.45 GB
-  - 예약된 메모리: 14.20 GB
-```
-
-**[단계 4] LoRA 설정**
+**[단계 2] Before — 파인튜닝 전 추론**
 
 ```python
-# LoRA 설정
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer.pad_token = tokenizer.eos_token
+
+# Instruction 형식으로 질문
+prompt = "### 질문: 인공지능이 우리 생활에 미치는 영향을 설명해주세요.\n\n### 답변: "
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+output = model.generate(**inputs, max_new_tokens=80, temperature=0.7)
+print(tokenizer.decode(output[0], skip_special_tokens=True))
+```
+
+베이스 모델은 Instruction 형식을 이해하지 못해 질문과 무관한 텍스트를 생성한다.
+
+**[단계 3] LoRA 설정 + KoAlpaca 데이터 준비**
+
+```python
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+
+# GPT-NeoX는 QKV가 융합되어 있으므로 query_key_value에 적용
 lora_config = LoraConfig(
-    r=16,                                    # LoRA rank
-    lora_alpha=32,                           # 스케일 인자
-    target_modules=["q_proj", "v_proj"],    # 적용 대상
+    r=16,
+    lora_alpha=32,
+    target_modules=["query_key_value"],
     lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM"                   # 모델 타입
+    task_type="CAUSAL_LM",
 )
-
-print("LoRA 설정:")
-print(f"  - Rank: {lora_config.r}")
-print(f"  - Alpha: {lora_config.lora_alpha}")
-print(f"  - Target Modules: {lora_config.target_modules}")
-print(f"  - Dropout: {lora_config.lora_dropout}")
-
-# LoRA 모델로 변환
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
 
-# 출력 예시:
-# trainable params: 1,572,864 || all params: 70,001,572,864 || trainable%: 0.00224
+# KoAlpaca 한국어 Instruction 데이터 로딩
+dataset = load_dataset("beomi/KoAlpaca-v1.1a", split="train")
+dataset = dataset.shuffle(seed=42).select(range(500))
+
+def format_and_tokenize(example):
+    text = f"### 질문: {example['instruction']}\n\n### 답변: {example['output']}{tokenizer.eos_token}"
+    return tokenizer(text, truncation=True, max_length=256, padding="max_length")
+
+tokenized = dataset.map(format_and_tokenize, remove_columns=dataset.column_names)
 ```
 
-**[단계 5] 데이터 준비**
+> **참고**: `target_modules`가 `["q_proj", "v_proj"]`가 아닌 `["query_key_value"]`인 이유는 GPT-NeoX 아키텍처에서 Q, K, V 프로젝션이 하나의 행렬로 융합되어 있기 때문이다. 모델 아키텍처에 따라 target_modules가 달라진다.
+
+**[단계 4] 학습 실행**
 
 ```python
-# 데이터 로딩 (간단한 예시)
-dataset = load_dataset("wikitext", "wikitext-2", split="train[:5%]")  # 5% 샘플
-
-# 토크나이저 로딩
-tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-
-# 토크나이제이션 함수
-def tokenize_function(examples):
-    return tokenizer(
-        examples["text"],
-        truncation=True,
-        max_length=512,
-        padding="max_length"
-    )
-
-# 데이터 준비
-tokenized_dataset = dataset.map(
-    tokenize_function,
-    batched=True,
-    remove_columns=["text"]
-)
-
-print(f"데이터셋 크기: {len(tokenized_dataset)}")
-print(f"샘플 크기: input_ids={tokenized_dataset[0]['input_ids'][:10]}")
-```
-
-**[단계 6] 학습 설정**
-
-```python
-# Gradient Checkpointing 활성화
-model.gradient_checkpointing_enable()
-
-# 학습 인자
 training_args = TrainingArguments(
-    output_dir="./lora_llama70b",
-    num_train_epochs=1,
-    per_device_train_batch_size=1,        # 8GB GPU에서는 배치 1
-    gradient_accumulation_steps=4,         # 효과적 배치 = 4
-    gradient_checkpointing=True,
+    output_dir="./lora_checkpoint",
+    max_steps=20,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=4,
     learning_rate=5e-4,
-    weight_decay=0.01,
-    logging_steps=10,
-    save_steps=50,
-    lr_scheduler_type="cosine",
-    warmup_steps=100,
-    bf16=True,                             # bfloat16 사용
-    max_grad_norm=0.3,
+    bf16=True,  # macOS에서는 bf16=False
+    gradient_checkpointing=True,
     seed=42,
 )
 
-print("학습 설정:")
-print(f"  - 배치 크기: {training_args.per_device_train_batch_size}")
-print(f"  - 그래디언트 누적: {training_args.gradient_accumulation_steps}")
-print(f"  - 학습률: {training_args.learning_rate}")
-print(f"  - Gradient Checkpointing: {training_args.gradient_checkpointing}")
-```
-
-**[단계 7] 학습 실행**
-
-```python
-# Trainer 초기화
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=tokenized_dataset,
-    data_collator=transformers.DataCollatorForLanguageModeling(
-        tokenizer, mlm=False
-    )
+    train_dataset=tokenized,
+    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
 )
-
-# 학습 시작
-print("학습 시작...")
 trainer.train()
-
-print("\n학습 완료")
-print(f"최종 메모리 사용:")
-allocated = torch.cuda.memory_allocated() / 1e9
-print(f"  - 할당된 메모리: {allocated:.2f} GB")
 ```
 
-**실행 결과 예시**:
+**[단계 5] After — Before/After 비교**
+
+동일한 질문으로 다시 추론하면, 모델이 Instruction 형식을 학습하여 구조화된 응답을 생성한다:
 
 ```
-학습 시작...
-  0%|          | 0/10 [00:00<?, ?it/s]
- 10%|█         | 1/10 [01:23<12:27, 83.05s/it, loss=4.2134]
- 20%|██        | 2/10 [02:45<11:02, 82.75s/it, loss=3.8921]
- ...
-학습 완료
+[질문] 인공지능이 우리 생활에 미치는 영향을 설명해주세요.
 
-학습 완료
-최종 메모리 사용:
-  - 할당된 메모리: 7.89 GB
+Before: (질문과 무관한 랜덤 한국어 텍스트)
+After:  인공지능은 우리 생활에 다양한 영향을 미치고 있습니다. 첫째, ...
 ```
 
-**[단계 8] 모델 저장 및 로딩**
-
-```python
-# LoRA 가중치 저장 (어댑터만 저장, 약 50MB)
-model.save_pretrained("llama70b-lora-checkpoint")
-
-# 저장된 파일 확인
-import os
-size = sum(os.path.getsize(f"llama70b-lora-checkpoint/{f}") for f in os.listdir("llama70b-lora-checkpoint"))
-print(f"저장된 어댑터 크기: {size / 1e6:.2f} MB")
-
-# 모델 불러오기
-from peft import AutoPeftModelForCausalLM
-
-loaded_model = AutoPeftModelForCausalLM.from_pretrained(
-    "llama70b-lora-checkpoint",
-    device_map="auto"
-)
-```
+20 스텝만으로도 Instruction 형식 준수가 확인된다. 응답 품질을 높이려면 50~100 스텝으로 늘린다.
 
 **핵심 인사이트**:
 
-1. **메모리 절감의 효과**: 8GB GPU로 70B 모델 파인튜닝이 가능해진다. 이는 Full Fine-tuning으로는 절대 불가능하다.
+1. **Before/After 차이**: 베이스 모델은 한국어 생성만 할 수 있지만, KoAlpaca로 Instruction Tuning하면 질문-답변 형식을 학습한다.
 
-2. **배치 크기 제약**: 1인 배치를 사용했지만, 그래디언트 누적(4)으로 효과적 배치를 4로 증가시킬 수 있다.
+2. **크로스 플랫폼**: Windows(QLoRA) / macOS(LoRA) 모두 동일한 파이프라인으로 실습 가능. 양자화 여부만 다르다.
 
-3. **저장 효율성**: 원본 모델은 280GB인데, LoRA 어댑터는 50MB만 저장하면 된다. 배포가 간편하다.
+3. **저장 효율성**: 1.3B 모델(2.6GB) 대비 LoRA 어댑터는 ~50MB. 여러 태스크의 어댑터를 교체하여 하나의 모델로 다중 서비스 가능.
 
-4. **학습 시간**: 배치 1이므로 전체 학습 시간이 길지만, 그래디언트 누적으로 안정성을 확보할 수 있다.
+4. **GPT-NeoX vs Llama**: 아키텍처에 따라 `target_modules`가 다르다. 실무에서는 모델의 레이어 이름을 확인하고 적절한 모듈을 선택해야 한다.
 
 ---
 
@@ -797,43 +676,45 @@ loaded_model = AutoPeftModelForCausalLM.from_pretrained(
 
 #### B회차 과제 스펙
 
-**B회차 (90분) — 실습 + 토론**: QLoRA로 대형 언어모델 파인튜닝
+**B회차 (90분) — 실습**: QLoRA/LoRA로 한국어 Instruction Tuning
 
 **실습 환경**:
 
 | 항목 | 내용 |
 |------|------|
-| 모델 | `facebook/opt-1.3b` (HuggingFace 자동 다운로드, 첫 실행 ~2.6GB) |
-| 데이터 | `wikitext-2-raw-v1` 5% 샘플 (HuggingFace datasets 자동 다운로드) |
-| GPU | NVIDIA RTX 4060(8GB) 이상 권장. GPU 없으면 CPU fallback 자동 전환 |
+| 모델 | `EleutherAI/polyglot-ko-1.3b` (한국어 전용, 첫 실행 ~2.6GB 다운로드) |
+| 데이터 | `beomi/KoAlpaca-v1.1a` 500개 샘플 (한국어 Instruction, Apache-2.0) |
+| Windows | NVIDIA RTX 4060(8GB)+ → QLoRA (4-bit + LoRA) |
+| macOS | Apple Silicon → LoRA (float16) |
 | 실습 파일 | `practice/chapter10/code/10-1-qlora파인튜닝.py` |
-| 출력 | `practice/chapter10/data/output/` (차트, 추론 결과, LoRA 어댑터) |
+| 출력 | `practice/chapter10/data/output/` (Before/After 비교, 차트, LoRA 어댑터) |
 
-> 스크립트가 NVIDIA GPU/NPU 감지 → CUDA 자동 설치 → 라이브러리 자동 설치를 수행하므로, 학생은 `python code/10-1-qlora파인튜닝.py` 만 실행하면 된다.
+> 스크립트가 NVIDIA GPU / Apple MPS 감지 → 환경 자동 구성을 수행하므로, `python code/10-1-qlora파인튜닝.py` 만 실행하면 된다.
 
 **과제 목표**:
 
-- OPT-1.3B 모델을 QLoRA로 파인튜닝한다
-- Full Fine-tuning과 LoRA, QLoRA의 메모리/성능을 비교한다
-- 파인튜닝된 모델의 추론을 테스트한다
+- polyglot-ko-1.3b 모델을 KoAlpaca 데이터로 Instruction Tuning한다
+- 파인튜닝 전후 동일 질문에 대한 응답 변화(Before/After)를 비교한다
+- Full FT / LoRA / QLoRA의 메모리 사용량을 분석한다
 
 **과제 구성** (3단계, 30~40분 완결):
 
-- **체크포인트 1 (10분)**: 환경 자동 구성 + 4-bit 모델 로딩 및 메모리 확인
-- **체크포인트 2 (15분)**: LoRA 설정 및 모델 파인튜닝 (20 step)
-- **체크포인트 3 (10분)**: 파인튜닝 모델 추론 및 메모리 비교 차트 분석
+- **체크포인트 1 (10분)**: 환경 구성 + 모델 로딩 + Before 추론 테스트
+- **체크포인트 2 (15분)**: LoRA/QLoRA 설정 + KoAlpaca 파인튜닝 (20 step)
+- **체크포인트 3 (10분)**: After 추론 + Before/After 비교 + 메모리 차트 분석
 
 **제출 형식**:
 
-- 실행 로그 (콘솔 출력 캡처)
+- Before/After 비교 결과 (`data/output/before_after_comparison.txt`)
 - 메모리 비교 그래프 (`data/output/memory_comparison.png`)
-- 실험 결과 리포트 (메모리 사용, 학습 시간, 추론 결과 분석)
+- 실험 결과 리포트 (Before/After 차이 분석, 메모리 사용량, 개선 제안)
 
 **Copilot 활용 가이드**:
 
-- 기본: "bitsandbytes로 OPT-1.3B를 4-bit로 로딩해줘"
-- 심화: "LoRA로 파인튜닝할 때 target_modules를 다르게 설정하고 성능을 비교해줘"
-- 검증: "Full Fine-tuning vs LoRA vs QLoRA의 메모리 사용을 계산해줄래?"
+- 기본: "polyglot-ko-1.3b를 4-bit로 로딩하고 LoRA를 적용해줘"
+- 심화: "rank를 8, 16, 32로 바꾸어 Before/After 품질을 비교해줘"
+- 심화: "학습 스텝을 50, 100으로 늘리면 응답 품질이 어떻게 변하는지 실험해줘"
+- 검증: "GPT-NeoX와 Llama 아키텍처에서 target_modules가 다른 이유를 설명해줘"
 
 ---
 
